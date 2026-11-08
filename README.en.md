@@ -12,11 +12,12 @@ Photograph Traditional Chinese text and add small Simplified Chinese reading hin
 
 Capture a book page, sign or menu, or import an existing photo. Text recognition runs locally on your device. Small Simplified Chinese hints appear above horizontal text and to the right of vertical text. The photo and annotations share the same zoom and pan transform, preserving the original layout.
 
-For example, 「這是一個美麗的世界」 receives only three hints: 「這 → 这」, 「個 → 个」 and 「麗 → 丽」. Conversion processes the whole line for context before aligning character sequences; uncertain mappings become phrase hints.
+For example, 「這是一個美麗的世界」 receives only three hints: 「這 → 这」, 「個 → 个」 and 「麗 → 丽」. Conversion processes the whole line for context before aligning character sequences; uncertain mappings are retained as phrase hints for manual review.
 
 ## Make the page easier to read
 
-- Rotate and crop photos; adjust annotation size, color, opacity and light backgrounds.
+- Automatically detect horizontal / vertical text and straighten page tilt within ±12° before OCR, with a preview, manual angle control, rotation and cropping.
+- Adjust annotation size, color, opacity and light backgrounds. Crowded hints shrink or are suppressed rather than moving into neighboring columns.
 - Tap a hint to inspect its source, conversion and confidence; correct recognized text, adjust positions or hide individual hints.
 - Save your reading state locally or export the photo with its visible annotations as PNG / JPEG.
 - Install the PWA and recognize text offline after caching the application and approximately 67.1 MiB of model resources.
@@ -25,7 +26,7 @@ For example, 「這是一個美麗的世界」 receives only three hints: 「這
 
 ![Source Han Serif and the automatic dark appearance](docs/screenshots/home-dark.png)
 
-Character locations currently use quadrilateral geometry and limited pixel refinement. Complex layouts may need manual correction. Real-phone performance and vertical-text samples still need broader evaluation.
+Character positions use tilted quadrilaterals and whole-line ink-gap segmentation to reduce accumulated errors from uneven spacing. Unreliable positions are held for review. Older readings are automatically realigned while preserving manual positions and visibility; a realign button is also available. Positions remain estimates: curved pages, perspective and complex layouts may need manual correction. Real-phone sample evaluation remains ongoing.
 
 ## Try it
 

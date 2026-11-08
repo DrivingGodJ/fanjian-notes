@@ -3,7 +3,13 @@ export const lerp = (a: Point,b: Point,t:number):Point => ({x:a.x+(b.x-a.x)*t,y:
 export const distance = (a: Point,b: Point) => Math.hypot(a.x-b.x,a.y-b.y);
 export function quadPoint(q:Quad,u:number,v:number):Point {return lerp(lerp(q[0],q[1],u),lerp(q[3],q[2],u),v);}
 export function quadSize(q:Quad) {return {width:(distance(q[0],q[1])+distance(q[3],q[2]))/2,height:(distance(q[0],q[3])+distance(q[1],q[2]))/2};}
-export function inferDirection(q:Quad):Direction {const s=quadSize(q);return s.height>s.width*1.4?'vertical':'horizontal';}
+export function inferDirection(q:Quad):Direction {const width=Math.max(...q.map(p=>p.x))-Math.min(...q.map(p=>p.x)),height=Math.max(...q.map(p=>p.y))-Math.min(...q.map(p=>p.y));return height>width*1.4?'vertical':'horizontal';}
+/** SDK rotated boxes can start along their long edge. Recover page-space corners before interpolating. */
+export function canonicalizeQuad(q:Quad,direction=inferDirection(q)):Quad{
+ const points=q.slice().sort((a,b)=>direction==='vertical'?a.y-b.y:a.x-b.x);
+ if(direction==='vertical'){const top=points.slice(0,2).sort((a,b)=>a.x-b.x),bottom=points.slice(2).sort((a,b)=>a.x-b.x);return [top[0],top[1],bottom[1],bottom[0]];}
+ const left=points.slice(0,2).sort((a,b)=>a.y-b.y),right=points.slice(2).sort((a,b)=>a.y-b.y);return [left[0],right[0],right[1],left[1]];
+}
 export function mapQuad(q:Quad,from:{width:number;height:number},to:{width:number;height:number}):Quad {
   return q.map(p=>({x:p.x*to.width/from.width,y:p.y*to.height/from.height})) as Quad;
 }

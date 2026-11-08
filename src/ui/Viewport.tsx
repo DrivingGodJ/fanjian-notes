@@ -1,4 +1,4 @@
-import {useEffect,useLayoutEffect,useRef,useState} from 'react';
+import {useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {Minus,Plus,Scan} from 'lucide-react';
 import type {Annotation,Reading,ViewTransform} from '../types';
 import {fitImage,screenToImage,zoomAt} from '../alignment/geometry';
@@ -26,7 +26,7 @@ export function Viewport({reading,onView,onSelect}:{reading:Reading;onView:(v:Vi
    const wheel=(e:WheelEvent)=>{e.preventDefault();const rect=element.getBoundingClientRect();zoom(current.current.scale*Math.exp(-e.deltaY*.002),{x:e.clientX-rect.left,y:e.clientY-rect.top});};
    element.addEventListener('wheel',wheel,{passive:false});return()=>element.removeEventListener('wheel',wheel);
  },[bounds]);
- const labels=layoutAnnotations(reading.annotations,reading.style,reading.width,reading.height,reading.lines);
+ const layout=useMemo(()=>layoutAnnotations(reading.annotations,reading.style,reading.width,reading.height,reading.lines),[reading.annotations,reading.style,reading.width,reading.height,reading.lines]),labels=layout.filter(l=>!l.hidden),crowded=layout.length-labels.length;
  return <div className="viewport" ref={container} data-testid="viewport"
    onPointerDown={e=>{if(e.button!==0)return;moved.current=false;pointers.current.set(e.pointerId,local(e));e.currentTarget.setPointerCapture(e.pointerId);base();}}
    onPointerMove={e=>{if(!pointers.current.has(e.pointerId)||!gesture.current)return;const previous=pointers.current.get(e.pointerId)!;const next=local(e);if(Math.hypot(next.x-previous.x,next.y-previous.y)>2)moved.current=true;pointers.current.set(e.pointerId,next);
@@ -44,6 +44,6 @@ export function Viewport({reading,onView,onSelect}:{reading:Reading;onView:(v:Vi
      </g>
    </svg>
    <div className="zoom-controls" onPointerDown={e=>e.stopPropagation()}><button aria-label="缩小" onClick={()=>zoom(view.scale/1.3)}><Minus size={17}/></button><span>{Math.round(view.scale*100)}%</span><button aria-label="放大" onClick={()=>zoom(view.scale*1.3)}><Plus size={17}/></button><i/><button aria-label="适合屏幕" onClick={()=>update(fitImage(reading.width,reading.height,bounds.width,bounds.height))}><Scan size={17}/></button></div>
-   <span className="viewport-hint">双指缩放 · 拖动阅读 · 点击旁注纠正</span>
+   <span className="viewport-hint">{crowded?`已收起 ${crowded} 处拥挤旁注，可减小字号 · `:''}双指缩放 · 拖动阅读 · 点击旁注纠正</span>
  </div>;
 }

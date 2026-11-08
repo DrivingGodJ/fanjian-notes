@@ -16,6 +16,14 @@
   font-family: var(--serif);
 }
 
+.straighten-controls{border:1px solid var(--line);border-radius:9px;padding:14px 16px;margin:0 0 13px;background:#f2f5eb}
+.straighten-controls>div{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.straighten-controls>p{font-size:10px;color:#6c825d;margin:10px 0}
+.straighten-controls>small{font-size:9px;color:#8d9e7f;line-height:1.7;display:block;margin-top:9px}
+.angle-control{display:flex;align-items:center;gap:9px;font-size:10px;white-space:nowrap;color:#6c825d}
+.angle-control input{min-width:40px}.angle-control output{min-width:42px;text-align:right;font-variant-numeric:tabular-nums}.angle-control button{color:var(--green);font-size:10px;padding:3px}
+@media(prefers-color-scheme:dark){.straighten-controls{background:#1b2c1f}.straighten-controls>p,.angle-control{color:#bdd1a7}.straighten-controls>small{color:#a1b58c}}
+
 /* The photo and its chosen annotation colors remain independent of the UI theme. */
 @media (prefers-color-scheme: dark) {
   :root {

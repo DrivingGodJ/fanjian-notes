@@ -21,14 +21,15 @@ Both npm overrides and pnpm-workspace.yaml pin ONNX Runtime to match the SDK's b
 ## Reading workflow
 
 - Use the rear camera or import a photo. If camera access fails, the system camera / photo file chooser remains available. Browser image decoding applies supported EXIF orientation.
-- Rotate in 90-degree steps and crop a rectangular region before recognition. Inputs are limited to 30 MB. The working photo is resized to at most 2400 pixels on its longest side and 5 million total pixels; OCR input is limited to 1600 pixels and 2.2 million pixels. This preserves the photograph rather than replacing it with text, but does resize and re-encode it for memory safety.
+- Before recognition, automatically detect horizontal / vertical text and correct page tilt within ±12°. Preview the result, adjust the angle manually, rotate in 90-degree steps or crop a rectangle. Preview and output use the same transform. Inputs are limited to 30 MB. The working photo is resized to at most 2400 pixels on its longest side and 5 million total pixels; OCR input is limited to 1600 pixels and 2.2 million pixels. This preserves the photograph rather than replacing it with text, but does resize and re-encode it for memory safety.
 - Official PaddleOCR.js 0.4.2 runs PP-OCRv5 Mobile detection and recognition in its dedicated Worker using single-threaded WASM. Instances are reused. Tasks can be cancelled or retried and time out if processing takes too long.
-- OpenCC converts complete lines with `twp → cn`, including Taiwan vocabulary such as `軟體 → 软件`. Unicode character sequences are aligned afterwards. Multiple optimal alignments and non-bijective edits become phrase hints.
-- Character positions use quadrilateral interpolation, mixed-width fallback and limited local pixel projection. Position confidence remains conservative. Horizontal hints appear above the source; vertical hints appear to its right.
+- OpenCC converts complete lines with `twp → cn`, including Taiwan vocabulary such as `軟體 → 软件`. Unicode character sequences are aligned afterwards. Multiple optimal alignments and non-bijective edits become phrase hints, held for manual review by default.
+- Normalize SDK quadrilateral corner ordering, then use whole-line ink projections and dynamic-programming gap segmentation to correct cross-axis centers and accumulated spacing errors. Mixed-width text has a geometric fallback. Image analysis runs in a cancellable dedicated Worker. Position confidence remains conservative. Horizontal hints appear above the source; vertical hints appear to its right.
+- Hints shrink or move slightly beside their own character; they never migrate into a neighboring column. Crowded hints are suppressed. Uncertain positions and phrase hints remain available in the annotation list for manual confirmation and adjustment.
 - Pinch to zoom, drag with one finger, use a wheel or fit the photo to the viewport. Photo and SVG annotations share the same transform.
 - Tap a hint to inspect source text, conversion and OCR / positioning confidence. Correct a whole recognized line, change its direction, adjust annotation offsets, hide / delete individual hints or restore them from the annotation list. Changing line text regenerates that line's annotations.
 - Adjust size, color, opacity and a light background. Canvas PNG / JPEG export uses the same layout as SVG, includes the complete processed photo and currently visible hints, and is independent of viewport zoom.
-- IndexedDB stores photos, recognized lines, annotations, corrections, style and view state. Recognition saves automatically; use Save during reading. Returning home also saves.
+- IndexedDB stores photos, recognized lines, annotations, corrections, style and view state. Recognition saves automatically; use Save during reading. Returning home also saves. Older readings are automatically realigned, preserving manual positions, hidden / deleted hints, style and view; the reader also provides a realign button. Correcting text re-analyzes the affected line from the photo.
 - The interface and SVG / Canvas hints use Adobe's unmodified official Source Han Serif Chinese regional variable font. The approximately 9.9 MiB font is hosted with the app and precached for offline use. Copyright and the SIL OFL 1.1 license are in `public/fonts/OFL.txt`.
 - `prefers-color-scheme` follows live system light/dark changes, including the browser theme-color metadata. Theme changes affect the interface without inverting photos or changing chosen annotation colors.
 - The iOS icon combines a jade book with outlined Source Han Serif 「書 / 书」 hints. Opaque 180, 167 and 152px PNGs are supplied alongside PWA 192/512px icons, a 1024px master and SVG artwork. The OS applies the outer rounded mask; supplied files are full squares.
@@ -70,10 +71,10 @@ All OCR, text conversion, coordinate computation, export and reading records rem
 
 ```text
 src/camera/             camera capture and permission fallback
-src/image-processing/   decoding, resizing, rotation/crop, perspective contract
+src/image-processing/   decoding, resizing, rotation/crop, deskew and analysis Worker
 src/ocr/                official SDK adapter, normalization and cache management
 src/text-conversion/    whole-line OpenCC, sequence alignment and phrase fallback
-src/alignment/          CharacterAlignmentEngine and geometry/view transforms
+src/alignment/          CharacterAlignmentEngine, ink-gap segmentation and geometry/view transforms
 src/annotation/         collision layout and SVG layer
 src/export/             Canvas composition
 src/storage/            IndexedDB records
@@ -109,8 +110,8 @@ pnpm run test:e2e
 
 Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to use an existing Chromium / Edge binary. The tests generate their own input images and run genuine local OCR, without injecting recognition results or reading personal photos. See the [test report (Chinese)](../TESTING.md) for completed runs and their limits.
 
-- Character positions are geometric estimates with modest projection refinement, not true character detections. Position scores are not calibrated statistical probabilities. Latin text, numbers, whitespace, punctuation, irregular fonts and spacing reduce reliability.
-- Dense lines, curved pages and image boundaries can still produce collisions. Layout tries to avoid them, with light backgrounds and manual offsets available. Phrase hints can be long.
+- Positions are estimates from line quadrilaterals and whole-line pixel segmentation, not true character detections. Scores are not calibrated probabilities. Latin text, numbers, whitespace, punctuation, irregular fonts and OCR omissions reduce reliability; unreliable hints are suppressed by default.
+- Deskew corrects small whole-page tilt; it does not infer semantic upside-down orientation, flatten curved pages or correct perspective. Dense lines and complex layouts can still lack space. Hints that do not fit are suppressed; reduce size or adjust them manually.
 - Vertical direction is inferred from line geometry. OCR may split columns or misread characters; line direction and recognized text are editable. A real-phone vertical-text sample evaluation is still pending.
 - Perspective correction currently has only the `PerspectiveCorrector` extension contract; four-corner editing is not available. There is no live video OCR.
 - The current stable backend is single-threaded WASM. WebGPU is not enabled. Initial SDK/model setup remains substantial and needs real-phone memory and timing measurements.

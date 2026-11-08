@@ -3,8 +3,9 @@ import {ArrowDownToLine,ArrowRight,BookOpen,Camera as CameraIcon,Check,ChevronRi
 import {registerSW} from 'virtual:pwa-register';
 import type {PreparedImage,Reading} from './types';
 import {DEFAULT_STYLE} from './types';
-import {prepareImage,resizedCanvas} from './image-processing/images';
-import {CharacterAlignmentEngine} from './alignment/CharacterAlignmentEngine';
+import {prepareImage} from './image-processing/images';
+import {ALIGNMENT_VERSION} from './alignment/CharacterAlignmentEngine';
+import {alignImageCharacters,improveReading} from './image-processing/analyze';
 import {recognize} from './ocr/adapter';
 import {listReadings,saveReading,deleteReading} from './storage/readings';
 import {cacheStatus} from './ocr/model-cache';
@@ -17,7 +18,8 @@ import {useBlobUrl} from './ui/hooks';
 
 type Screen='home'|'prepare'|'processing'|'reader'|'history';
 function App(){
- const [screen,setScreen]=useState<Screen>('home'),[camera,setCamera]=useState(false),[models,setModels]=useState(false),[prepared,setPrepared]=useState<PreparedImage>(),[reading,setReading]=useState<Reading>();
+ const [screen,setScreen]=useState<Screen>('home'),[camera,setCamera]=useState(false),[models,setModels]=useState(false),[prepared,setPrepared]=useState<PreparedImage>(),[reading,setReading]=useState<Reading>(),[aligning,setAligning]=useState(false);
+ const latestReading=useRef(reading);latestReading.current=reading;
  const [recent,setRecent]=useState<Reading[]>([]),[toast,setToast]=useState(''),[error,setError]=useState(''),[step,setStep]=useState(''),[progress,setProgress]=useState(0),[importing,setImporting]=useState(false),[modelReady,setModelReady]=useState(false),[offline,setOffline]=useState(!navigator.onLine),[update,setUpdate]=useState<(()=>void)>();
  const upload=useRef<HTMLInputElement>(null),capture=useRef<HTMLInputElement>(null),controller=useRef<AbortController>(null),taskId=useRef(0);
  const notify=(message:string)=>setToast(message);
@@ -29,21 +31,27 @@ function App(){
  useEffect(()=>{if(!toast)return;const id=setTimeout(()=>setToast(''),4500);return()=>clearTimeout(id);},[toast]);
  const importFile=async(file?:File)=>{if(!file)return;setCamera(false);setImporting(true);setError('');try{setPrepared(await prepareImage(file));setScreen('prepare');}catch(e){setError((e as Error).message);}finally{setImporting(false);if(upload.current)upload.current.value='';if(capture.current)capture.current.value='';}};
  const save=async(r=reading)=>{if(!r)return;try{await saveReading({...r,updatedAt:Date.now()});notify('阅读记录已保存到本机');await refresh();}catch{notify('保存失败，可能空间不足。请先导出图片。');}};
- const goHome=async()=>{taskId.current++;controller.current?.abort();if(reading&&screen==='reader')await save(reading);setScreen('home');setError('');refresh();};
+ const goHome=async()=>{taskId.current++;controller.current?.abort();setAligning(false);if(reading&&screen==='reader')await save(reading);setScreen('home');setError('');refresh();};
  const start=async(image:PreparedImage)=>{
-  controller.current?.abort();const id=++taskId.current;const abort=new AbortController();controller.current=abort;setPrepared(image);setReading(undefined);setScreen('processing');setError('');setProgress(0);
+  controller.current?.abort();setAligning(false);const id=++taskId.current;const abort=new AbortController();controller.current=abort;setPrepared(image);setReading(undefined);setScreen('processing');setError('');setProgress(0);
   try{
    const lines=await recognize(image,abort.signal,(s,p)=>{if(taskId.current===id){setStep(s);if(p!==undefined)setProgress(p);}});abort.signal.throwIfAborted();
-   let sampler:((p:{x:number;y:number})=>number|undefined)|undefined;
-   const c=await resizedCanvas(image.blob,1600,2200000),ctx=c.getContext('2d',{willReadFrequently:true});
-   if(ctx){const pixels=ctx.getImageData(0,0,c.width,c.height),sx=c.width/image.width,sy=c.height/image.height;sampler=p=>{const x=Math.round(p.x*sx),y=Math.round(p.y*sy);if(x<0||x>=pixels.width||y<0||y>=pixels.height)return;const i=(y*pixels.width+x)*4;return 1-(pixels.data[i]*.299+pixels.data[i+1]*.587+pixels.data[i+2]*.114)/255;};}
-   const annotations=new CharacterAlignmentEngine().alignAll(lines,sampler);c.width=1;
-   const now=Date.now(),r:Reading={id:crypto.randomUUID(),name:image.name,createdAt:now,updatedAt:now,image:image.blob,width:image.width,height:image.height,lines,annotations,style:{...DEFAULT_STYLE},view:{x:0,y:0,scale:0},showAnnotations:true};
+   setStep('分析整行字间留白与逐字位置');
+   const annotations=await alignImageCharacters(image,lines,abort.signal);
+   const now=Date.now(),r:Reading={id:crypto.randomUUID(),name:image.name,createdAt:now,updatedAt:now,image:image.blob,width:image.width,height:image.height,lines,annotations,style:{...DEFAULT_STYLE},view:{x:0,y:0,scale:0},showAnnotations:true,alignmentVersion:ALIGNMENT_VERSION};
    abort.signal.throwIfAborted();if(taskId.current!==id)return;setReading(r);setScreen('reader');setModelReady(true);
    await save(r);if(!lines.length)notify('未找到清晰文字，可调整照片后重新识别。');else if(!annotations.length)notify('已识别原文，未发现需要转换的繁体字。');
   }catch(e){if((e as Error).name!=='AbortError'&&taskId.current===id){setError((e as Error).message||'识别失败，请重试。');setStep('暂时没能读懂这张照片');}}
  };
- const cancel=()=>{taskId.current++;controller.current?.abort();setScreen('prepare');setError('');};
+ const cancel=()=>{taskId.current++;controller.current?.abort();setAligning(false);setScreen('prepare');setError('');};
+ const optimize=async(r=reading)=>{
+  if(!r)return;controller.current?.abort();const id=++taskId.current,abort=new AbortController();controller.current=abort;setAligning(true);notify('正在按照片重新定位字符…');
+  try{const updated=await improveReading(r,abort.signal),current=latestReading.current;if(id!==taskId.current||current?.id!==r.id)return;
+   if(current.annotations!==r.annotations||current.lines!==r.lines){notify('内容已修改，可稍后再次优化定位');return;}
+   const merged={...updated,view:current.view,style:current.style,showAnnotations:current.showAnnotations};setReading(merged);await saveReading(merged);await refresh();notify('位置已重新计算；不可靠的旁注已收起待确认');
+  }catch(e){if((e as Error).name!=='AbortError')notify((e as Error).message);}finally{if(id===taskId.current)setAligning(false);}
+ };
+ const openReading=(r:Reading)=>{setReading(r);setScreen('reader');if(!r.demo&&(r.alignmentVersion??0)<ALIGNMENT_VERSION)void optimize(r);};
  const demo=async(vertical=false)=>{try{setReading(await createDemo(vertical));setScreen('reader');}catch(e){setError((e as Error).message);}};
  const isReader=screen==='reader'&&reading;
  return <div className={isReader?'app reading-mode':'app'}>
@@ -57,12 +65,12 @@ function App(){
  <section className="benefits"><div><span><ScanIcon/></span><p><strong>拍下，就能读</strong><small>书页、路牌、菜单，一张照片即可</small></p></div><div><span><Sparkles size={21}/></span><p><strong>轻轻旁注，不改原文</strong><small>只标不同的字，随照片一起缩放</small></p></div><div><span><ShieldCheck size={21}/></span><p><strong>阅读，安心留在本机</strong><small>设备本地识别，缓存后支持离线</small></p></div></section>
  <section className="try-banner"><div className="try-icon">繁<span>简</span></div><div><h3>先翻开一页，感受旁注阅读</h3><p>不必上传照片，用示例体验缩放、纠错与导出。</p></div><button onClick={()=>demo()}>体验示例<ArrowRight size={16}/></button></section></>:<div className="history-heading"><p className="eyebrow">YOUR READING SHELF</p><h1>我的阅读</h1><p className="muted">留在设备里的照片，和你上次读到的地方。</p><button className="primary" onClick={()=>upload.current?.click()}><Plus size={18}/>导入新照片</button></div>}
  {error&&<div role="alert" className="error global-error">{error}<button aria-label="关闭提示" onClick={()=>setError('')}><X size={17}/></button></div>}
- <section className="recent-section"><div className="section-heading"><h2>{screen==='history'?'阅读书架':'最近阅读'}<span>{recent.length.toString().padStart(2,'0')}</span></h2>{screen==='home'&&<button onClick={()=>setScreen('history')}>全部记录<ChevronRight size={16}/></button>}</div>{recent.length?<div className="reading-grid">{recent.map(r=><ReadingCard key={r.id} reading={r} onOpen={()=>{setReading(r);setScreen('reader');}} onDelete={async()=>{try{await deleteReading(r.id);refresh();notify('已删除这条本地记录');}catch{notify('删除失败，请重试');}}}/>)}</div>:<div className="empty-records"><BookOpen size={27} strokeWidth={1.3}/><div><strong>你的下一页，从这里开始</strong><p>识别后的照片会出现在这里，随时接着读。</p></div><button aria-label="导入第一张照片" onClick={()=>upload.current?.click()}><Plus size={21}/></button></div>}</section>
+ <section className="recent-section"><div className="section-heading"><h2>{screen==='history'?'阅读书架':'最近阅读'}<span>{recent.length.toString().padStart(2,'0')}</span></h2>{screen==='home'&&<button onClick={()=>setScreen('history')}>全部记录<ChevronRight size={16}/></button>}</div>{recent.length?<div className="reading-grid">{recent.map(r=><ReadingCard key={r.id} reading={r} onOpen={()=>openReading(r)} onDelete={async()=>{try{await deleteReading(r.id);refresh();notify('已删除这条本地记录');}catch{notify('删除失败，请重试');}}}/>)}</div>:<div className="empty-records"><BookOpen size={27} strokeWidth={1.3}/><div><strong>你的下一页，从这里开始</strong><p>识别后的照片会出现在这里，随时接着读。</p></div><button aria-label="导入第一张照片" onClick={()=>upload.current?.click()}><Plus size={21}/></button></div>}</section>
  <footer className="page-footer"><span>保留原文的温度，让文字更容易亲近。</span><button onClick={()=>setModels(true)}><span className={modelReady?'status-dot ready':'status-dot'}/>{modelReady?'离线模型已缓存':'准备离线阅读'}<ArrowRight size={13}/></button></footer>
  </>}
  {screen==='prepare'&&prepared&&<Preprocess image={prepared} onBack={goHome} onStart={start}/>}
  {screen==='processing'&&<section className="processing"><div className={error?'processing-symbol failed':'processing-symbol'}>{error?<BookOpen size={40}/>:<LoaderCircle className="spin" size={40}/>}</div><p className="eyebrow">A MOMENT FOR YOUR WORDS</p><h1>{error?'换个方式，再读一次':'正在读懂这一页'}</h1><p aria-live="polite" role="status">{step}</p>{!error&&<progress max="1" value={progress}/>}<ol className="steps">{['准备本地模型','识别原始繁体','对齐简体旁注'].map((s,i)=><li key={s} className={progress>=[.5,.7,.94][i]?'complete':''}><span>{progress>=[.5,.7,.94][i]?<Check size={13}/>:i+1}</span>{s}</li>)}</ol>{error&&<p role="alert" className="error">{error}</p>}<div className="row-actions">{error&&prepared&&<button className="primary" onClick={()=>start(prepared)}>重新尝试</button>}<button className="secondary" onClick={cancel}>{error?'返回调整照片':'取消识别'}</button></div><small><ShieldCheck size={14}/>照片与识别文字都不会上传</small></section>}
- {isReader&&<Reader reading={reading} onChange={setReading} onBack={goHome} onSave={()=>save()} onRerun={()=>{setPrepared({blob:reading.image,width:reading.width,height:reading.height,name:reading.name});setScreen('prepare');}} notify={notify}/>}
+ {isReader&&<Reader reading={reading} realigning={aligning} onRealign={()=>optimize()} onChange={setReading} onBack={goHome} onSave={()=>save()} onRerun={()=>{taskId.current++;controller.current?.abort();setAligning(false);setPrepared({blob:reading.image,width:reading.width,height:reading.height,name:reading.name});setScreen('prepare');}} notify={notify}/>}
  </main>
  {camera&&<Camera onCapture={importFile} onClose={()=>setCamera(false)} onFallback={()=>{setCamera(false);capture.current?.click();}}/>}
  {models&&<ModelManager onClose={()=>{setModels(false);cacheStatus().then(s=>setModelReady(s.ready)).catch(()=>{});}}/>}

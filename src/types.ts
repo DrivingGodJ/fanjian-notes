@@ -5,6 +5,7 @@ export type Direction = 'horizontal' | 'vertical';
 export interface OcrLine {
   id: string; text: string; polygon: Quad; confidence: number;
   direction: Direction; modified?: boolean;
+  directionSource?:'auto'|'manual';
 }
 export interface Annotation {
   id: string; lineId: string; sourceIndex: number; original: string; simplified: string;
@@ -13,6 +14,7 @@ export interface Annotation {
   ocrConfidence: number; positionConfidence: number;
   method: 'geometry' | 'projection' | 'manual';
   modified: boolean; visible: boolean; deleted?: boolean;
+  needsReview?:boolean;
   offset?: Point; kind: 'character' | 'phrase';
 }
 export interface AnnotationStyle {
@@ -24,6 +26,7 @@ export interface Reading {
   image: Blob; width: number; height: number; lines: OcrLine[];
   annotations: Annotation[]; style: AnnotationStyle; showAnnotations: boolean;
   view: ViewTransform; demo?: boolean;
+  alignmentVersion?:number;
 }
 export interface PreparedImage { blob: Blob; width: number; height: number; name: string }
 export const DEFAULT_STYLE: AnnotationStyle = {size: .48, color: '#b34c32', opacity: 1, background: true};

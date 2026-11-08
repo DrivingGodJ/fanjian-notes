@@ -2,7 +2,7 @@ import type { Label } from './layout';
 import type { Annotation, AnnotationStyle } from '../types';
 import {ANNOTATION_FONT} from './typography';
 export function AnnotationLayer({labels,style,onSelect}:{labels:Label[];style:AnnotationStyle;onSelect?:(a:Annotation)=>void}){
- return <g opacity={style.opacity} data-testid="annotation-layer">{labels.map(l=><g key={l.annotation.id}
+ return <g opacity={style.opacity} data-testid="annotation-layer">{labels.filter(l=>!l.hidden).map(l=><g key={l.annotation.id}
    transform={`translate(${l.x} ${l.y}) rotate(${l.angle})`} role={onSelect?'button':undefined}
    tabIndex={onSelect?0:undefined} aria-label={`${l.annotation.original} → ${l.annotation.simplified}`}
    onClick={e=>{e.stopPropagation();onSelect?.(l.annotation);}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')onSelect?.(l.annotation);}}

@@ -8,6 +8,7 @@ export async function exportReading(reading:Reading,type:'image/png'|'image/jpeg
  const ctx=canvas.getContext('2d');if(!ctx)throw new Error('无法创建导出画布。');
  ctx.drawImage(await loadImage(reading.image),0,0);
  if(reading.showAnnotations)for(const l of layoutAnnotations(reading.annotations,reading.style,reading.width,reading.height,reading.lines)){
+   if(l.hidden)continue;
    ctx.save();ctx.translate(l.x,l.y);ctx.rotate(l.angle*Math.PI/180);ctx.globalAlpha=reading.style.opacity;
    if(reading.style.background){ctx.fillStyle='#fffdf4';ctx.fillRect(-l.width/2,-l.height/2,l.width,l.height);}
    ctx.fillStyle=reading.style.color;ctx.font=`600 ${l.fontSize}px ${ANNOTATION_FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(l.annotation.simplified,0,0);ctx.restore();
