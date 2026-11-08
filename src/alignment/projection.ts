@@ -6,7 +6,7 @@ export interface CharacterSlot {center:number;start:number;end:number;crossStart
 export function characterAdvance(c:string,vertical=false){return /\s/u.test(c)?.5:/[\x00-\x7f]/u.test(c)?(vertical?.5:.58):1;}
 
 /** Fit the entire line to ink valleys; local-only nudges cannot repair accumulated spacing errors. */
-export function projectCharacters(line:OcrLine,chars:string[],sample:PixelSampler):CharacterSlot[]|undefined{
+export function projectCharacters(line:OcrLine,chars:string[],sample:PixelSampler,anchors?:number[]):CharacterSlot[]|undefined{
  if(!chars.length||chars.length>180)return;
  const vertical=line.direction==='vertical',size=quadSize(line.polygon),length=vertical?size.height:size.width;
  const count=chars.length,bins=Math.min(1800,Math.max(count*12,Math.round(length))),cross=40;
@@ -29,13 +29,14 @@ export function projectCharacters(line:OcrLine,chars:string[],sample:PixelSample
  let previous=new Float64Array(bins+1).fill(Infinity);previous[first]=0;
  const back=Array.from({length:count+1},()=>new Int16Array(bins+1).fill(-1));let advance=0;
  for(let i=1;i<=count;i++){
-  const expected=pitch*weights[i-1];advance+=expected;const next=new Float64Array(bins+1).fill(Infinity),goal=first+advance,slack=Math.max(pitch*3,span*.08);
+  const expected=pitch*weights[i-1];advance+=expected;const next=new Float64Array(bins+1).fill(Infinity),goal=anchors&&i<count?(anchors[i-1]+anchors[i])/2*bins:first+advance,slack=Math.max(pitch*3,span*.08);
   const minEnd=i===count?last+1:Math.max(first+i,Math.round(goal-slack)),maxEnd=i===count?last+1:Math.min(last-(count-i)+1,Math.round(goal+slack));
   for(let end=minEnd;end<=maxEnd;end++)for(let start=Math.max(first,end-Math.ceil(expected*2.1));start<=end-Math.max(2,Math.floor(expected*.32));start++){
    if(!Number.isFinite(previous[start]))continue;
    const width=end-start,ink=(mass[end]-mass[start])/(width*cross),spacing=(width/expected-1)**2;
    const blank=isHan(chars[i-1])&&ink<.025?3:0;
-   const cost=previous[start]+spacing*.65+(i===count?0:smooth[end]*2.4)+((end-goal)/pitch)**2*.012+blank;
+   const anchor=anchors?.[i-1],outside=anchor===undefined?0:Math.max(0,start-anchor*bins,anchor*bins-end)/pitch;
+   const cost=previous[start]+spacing*.65+(i===count?0:smooth[end]*2.4)+((end-goal)/pitch)**2*.012+blank+outside*outside*8;
    if(cost<next[end]){next[end]=cost;back[i][end]=start;}
   }
   previous=next;

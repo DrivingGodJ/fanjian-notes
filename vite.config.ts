@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
       icons: [{src:`${base}icon-192.png`,sizes:'192x192',type:'image/png'}, {src:`${base}icon-512.png`,sizes:'512x512',type:'image/png',purpose:'any maskable'}]
     }
   })],
-  optimizeDeps: { include: ['@paddleocr/paddleocr-js'] },
+  optimizeDeps: { include: ['@paddleocr/paddleocr-js','onnxruntime-web/wasm'] },
   server: { port: 5173, strictPort: true,https },
   preview: { port: 4173, strictPort: true,https },
   build: { chunkSizeWarningLimit: 1800 },

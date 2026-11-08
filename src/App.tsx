@@ -5,7 +5,7 @@ import type {PreparedImage,Reading} from './types';
 import {DEFAULT_STYLE} from './types';
 import {prepareImage} from './image-processing/images';
 import {ALIGNMENT_VERSION} from './alignment/CharacterAlignmentEngine';
-import {alignImageCharacters,improveReading} from './image-processing/analyze';
+import {analyzeImageLines,improveReading} from './image-processing/analyze';
 import {recognize} from './ocr/adapter';
 import {listReadings,saveReading,deleteReading} from './storage/readings';
 import {cacheStatus} from './ocr/model-cache';
@@ -37,8 +37,8 @@ function App(){
   try{
    const lines=await recognize(image,abort.signal,(s,p)=>{if(taskId.current===id){setStep(s);if(p!==undefined)setProgress(p);}});abort.signal.throwIfAborted();
    setStep('分析整行字间留白与逐字位置');
-   const annotations=await alignImageCharacters(image,lines,abort.signal);
-   const now=Date.now(),r:Reading={id:crypto.randomUUID(),name:image.name,createdAt:now,updatedAt:now,image:image.blob,width:image.width,height:image.height,lines,annotations,style:{...DEFAULT_STYLE},view:{x:0,y:0,scale:0},showAnnotations:true,alignmentVersion:ALIGNMENT_VERSION};
+   const result=await analyzeImageLines(image,lines,abort.signal,setStep),annotations=result.annotations;
+   const now=Date.now(),r:Reading={id:crypto.randomUUID(),name:image.name,createdAt:now,updatedAt:now,image:image.blob,width:image.width,height:image.height,lines:result.lines,annotations,style:{...DEFAULT_STYLE},view:{x:0,y:0,scale:0},showAnnotations:true,alignmentVersion:ALIGNMENT_VERSION};
    abort.signal.throwIfAborted();if(taskId.current!==id)return;setReading(r);setScreen('reader');setModelReady(true);
    await save(r);if(!lines.length)notify('未找到清晰文字，可调整照片后重新识别。');else if(!annotations.length)notify('已识别原文，未发现需要转换的繁体字。');
   }catch(e){if((e as Error).name!=='AbortError'&&taskId.current===id){setError((e as Error).message||'识别失败，请重试。');setStep('暂时没能读懂这张照片');}}

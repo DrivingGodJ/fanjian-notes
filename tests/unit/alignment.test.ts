@@ -17,6 +17,10 @@ describe('character positions from line geometry',()=>{
   const notes=engine.align({...line,text:'這 v2 麗'},()=>.5);expect(notes.every(a=>a.positionConfidence<.35)).toBe(true);expect(notes[0].method).toBe('geometry');expect(notes.every(a=>a.needsReview&&!a.visible)).toBe(true);
  });
  it('handles empty and punctuation-only text',()=>{expect(engine.align({...line,text:''})).toEqual([]);expect(engine.align({...line,text:'，。！？123'})).toEqual([]);});
+ it('uses verified source glyph boxes, and holds mismatches for review',()=>{
+  const l:OcrLine={...line,evidenceStatus:'mismatch',characters:[{sourceIndex:3,character:'個',confidence:.75,polygon:[{x:500,y:120},{x:540,y:120},{x:540,y:170},{x:500,y:170}]}]};
+  const notes=engine.align(l);expect(notes[1].center).toEqual({x:520,y:145});expect(notes[1].method).toBe('recognition');expect(notes[1].visible).toBe(true);expect(notes[0].visible).toBe(false);expect(notes[0].needsReview).toBe(true);
+ });
  it('uses the entire quadrilateral for perspective interpolation',()=>{const q:Quad=[{x:0,y:0},{x:200,y:20},{x:180,y:120},{x:20,y:80}];expect(quadPoint(q,.5,.5)).toEqual({x:100,y:55});});
 });
 describe('natural-pixel transforms and layout',()=>{

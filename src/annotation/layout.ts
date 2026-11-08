@@ -24,7 +24,7 @@ export function layoutAnnotations(annotations:Annotation[],style:AnnotationStyle
   const base=Math.max(1,Math.min(a.charWidth,a.charHeight)),wanted=Math.max(6,base*style.size);
   const make=(fontSize:number,x:number,y:number):Label=>({annotation:a,x,y,width:fontSize*characters(a.simplified).length+fontSize*.35,height:fontSize*1.25,fontSize,angle:a.angle,collided:false,hidden:false});
   const blocked=(l:Label)=>{const q=corners(l);return q.some(p=>p.x<0||p.y<0||p.x>width||p.y>height)||placed.some(p=>!p.hidden&&overlaps(q,corners(p)))||obstacles.some(o=>o.id!==a.lineId&&overlaps(q,o.poly));};
-  if(a.offset){const l=make(wanted,a.position.x+a.offset.x,a.position.y+a.offset.y);l.collided=blocked(l);placed.push(l);continue;}
+  if(a.offset||a.method==='manual'){const l=make(wanted,a.position.x+(a.offset?.x??0),a.position.y+(a.offset?.y??0));l.collided=blocked(l);placed.push(l);continue;}
   let nx=a.position.x-a.center.x,ny=a.position.y-a.center.y;const length=Math.hypot(nx,ny)||1;nx/=length;ny/=length;
   let chosen:Label|undefined;
   for(const factor of [1,.9,.8,.7,.6]){

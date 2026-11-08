@@ -11,6 +11,6 @@ test('automatic deskew previews its correction and allows a manual override',asy
  const correction=Number(await angle.inputValue());expect(correction).toBeLessThan(-3.5);expect(correction).toBeGreaterThan(-6.5);
  await expect(page.locator('.straighten-controls')).toContainText('竖排文字');
  await page.screenshot({path:testInfo.outputPath('auto-deskew-mobile.png'),fullPage:true});
- await angle.fill('-2.5');await expect(page.getByLabel('自动拉直',{exact:true})).not.toBeChecked();await expect(page.locator('.straighten-controls output')).toHaveText('-2.5°');
+ await angle.fill('-2.5');await expect(page.getByLabel('自动校正倾角',{exact:true})).not.toBeChecked();await expect(page.locator('.straighten-controls output')).toHaveText('-2.5°');
  await page.getByRole('button',{name:'重置',exact:true}).click();await expect(angle).toHaveValue('0');
 });

@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { readFile, writeFile, mkdir, copyFile, readdir, rename } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import yaml from 'js-yaml';
 const require=createRequire(import.meta.url), root=path.resolve(import.meta.dirname,'..'), dest=path.join(root,'public/ocr');
 await mkdir(dest,{recursive:true});
 const sdk=path.dirname(fileURLToPath(import.meta.resolve('@paddleocr/paddleocr-js')));
@@ -45,8 +46,14 @@ for(const [short,name] of [['det','PP-OCRv5_mobile_det'],['rec','PP-OCRv5_mobile
   }
   files.push(file);
 }
+const recArchive=await readFile(path.join(dest,'rec.tar'));let recConfig;
+for(let p=0;p+512<=recArchive.length;){const h=recArchive.subarray(p,p+512),name=h.subarray(0,100).toString().replace(/\0.*/,''),size=parseInt(h.subarray(124,136).toString().replace(/\0.*/,''),8)||0;if(!name)break;if(name.endsWith('/inference.yml'))recConfig=yaml.load(recArchive.subarray(p+512,p+512+size).toString());p+=512+Math.ceil(size/512)*512;}
+const resize=recConfig?.PreProcess?.transform_ops?.find(op=>op.RecResizeImg)?.RecResizeImg;
+if(!resize?.image_shape||!Array.isArray(recConfig?.PostProcess?.character_dict))throw Error('Official recognition config is invalid');
+await writeFile(path.join(dest,'rec-params.json'),JSON.stringify({imageShape:resize.image_shape,charDict:[...recConfig.PostProcess.character_dict,' ']}));files.push('rec-params.json');
 const assets=[];
 for(const file of files){const data=await readFile(path.join(dest,file));assets.push({url:file,bytes:data.length,sha256:createHash('sha256').update(data).digest('hex')});}
 await writeFile(path.join(dest,'manifest.json'),JSON.stringify({version:'paddle-0.4.2-ort-1.24.3-v5-mobile',assets},null,2));
 // Install icons are authored assets in public/, never regenerated over the approved artwork.
 console.log(`OCR assets ready: ${(assets.reduce((s,a)=>s+a.bytes,0)/1048576).toFixed(1)} MiB. All served locally.`);
+await import('./prepare-unwarp.mjs');

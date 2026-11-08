@@ -39,7 +39,9 @@ jobs:
           path: |
             public/ocr/det.tar
             public/ocr/rec.tar
-          key: ppocr-v5-mobile-0.4.2-78105604-f7e792bc
+            public/ocr/uvdoc.tar
+          key: ppocr-v5-mobile-0.4.2-78105604-f7e792bc-uvdoc-8b46701b
+          restore-keys: ppocr-v5-mobile-0.4.2-78105604-f7e792bc
       - name: Build application and official OCR assets
         run: pnpm build
       - name: Prepare browser and Chinese test fonts

@@ -16,17 +16,17 @@ For example, 「這是一個美麗的世界」 receives only three hints: 「這
 
 ## Make the page easier to read
 
-- Automatically detect horizontal / vertical text and straighten page tilt within ±12° before OCR, with a preview, manual angle control, rotation and cropping.
+- Automatically rectify page perspective and curvature with local UVDoc, preview the result and undo it if needed before OCR. Separate controls handle tilt within ±12°, rotation and cropping.
 - Adjust annotation size, color, opacity and light backgrounds. Crowded hints shrink or are suppressed rather than moving into neighboring columns.
-- Tap a hint to inspect its source, conversion and confidence; correct recognized text, adjust positions or hide individual hints.
+- Tap a hint to highlight its source glyph, correct text, tap the original glyph to set its position, adjust offsets or hide individual hints.
 - Save your reading state locally or export the photo with its visible annotations as PNG / JPEG.
-- Install the PWA and recognize text offline after caching the application and approximately 67.1 MiB of model resources.
+- Install the PWA and recognize text offline after caching the application and approximately 67.2 MiB of OCR resources.
 - The interface and reading hints use locally hosted Source Han Serif, cached for offline use. Light and dark modes follow the system automatically while photos retain their original appearance.
 - iOS home-screen artwork uses a book with 「書 / 书」 annotation: [design preview](docs/screenshots/icon-preview.png) · [1024px master](public/icon-1024.png).
 
 ![Source Han Serif and the automatic dark appearance](docs/screenshots/home-dark.png)
 
-Character positions use tilted quadrilaterals and whole-line ink-gap segmentation to reduce accumulated errors from uneven spacing. Unreliable positions are held for review. Older readings are automatically realigned while preserving manual positions and visibility; a realign button is also available. Positions remain estimates: curved pages, perspective and complex layouts may need manual correction. Real-phone sample evaluation remains ongoing.
+Character positions combine recognition timing, image pixels and source-text matching to reduce errors from omissions, punctuation and uneven spacing. Unmatched or unreliable positions are held for review. Older readings are automatically realigned while preserving manual positions and visibility; a realign button is also available. The optional rectification model adds about 30.2 MiB and works offline after caching. Positions remain estimates rather than true character detections; complex layouts need review and real-phone evaluation is ongoing. See [rectification and positioning details (Chinese)](docs/RECTIFICATION.md).
 
 ## Try it
 

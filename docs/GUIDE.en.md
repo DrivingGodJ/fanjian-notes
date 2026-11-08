@@ -21,10 +21,12 @@ Both npm overrides and pnpm-workspace.yaml pin ONNX Runtime to match the SDK's b
 ## Reading workflow
 
 - Use the rear camera or import a photo. If camera access fails, the system camera / photo file chooser remains available. Browser image decoding applies supported EXIF orientation.
-- Before recognition, automatically detect horizontal / vertical text and correct page tilt within ±12°. Preview the result, adjust the angle manually, rotate in 90-degree steps or crop a rectangle. Preview and output use the same transform. Inputs are limited to 30 MB. The working photo is resized to at most 2400 pixels on its longest side and 5 million total pixels; OCR input is limited to 1600 pixels and 2.2 million pixels. This preserves the photograph rather than replacing it with text, but does resize and re-encode it for memory safety.
-- Official PaddleOCR.js 0.4.2 runs PP-OCRv5 Mobile detection and recognition in its dedicated Worker using single-threaded WASM. Instances are reused. Tasks can be cancelled or retried and time out if processing takes too long.
+- Use the perspective/curvature button to run UVDoc locally, inspect the preview, and undo before OCR if needed. Its optional 30.2 MiB model can be cached in advance. Rectification input is limited to 1800 pixels / 2.2 million pixels; improvement is not guaranteed for every page.
+- A separate tilt control detects horizontal / vertical text and corrects whole-page rotation within ±12°. Preview the result, adjust the angle manually, rotate in 90-degree steps or crop a rectangle. Preview and output use the same transform. Inputs are limited to 30 MB. The working photo is resized to at most 2400 pixels on its longest side and 5 million total pixels; OCR input is limited to 1600 pixels and 2.2 million pixels. This preserves the photograph rather than replacing it with text, but does resize and re-encode it for memory safety.
+- Official PaddleOCR.js 0.4.2 runs PP-OCRv5 Mobile detection and recognition in its dedicated Worker using single-threaded WASM. Tasks can be cancelled or retried and time out if processing takes too long. Workers are released between line recognition, character verification and rectification to limit memory, so another recognition may initialize again.
 - OpenCC converts complete lines with `twp → cn`, including Taiwan vocabulary such as `軟體 → 软件`. Unicode character sequences are aligned afterwards. Multiple optimal alignments and non-bijective edits become phrase hints, held for manual review by default.
-- Normalize SDK quadrilateral corner ordering, then use whole-line ink projections and dynamic-programming gap segmentation to correct cross-axis centers and accumulated spacing errors. Mixed-width text has a geometric fallback. Image analysis runs in a cancellable dedicated Worker. Position confidence remains conservative. Horizontal hints appear above the source; vertical hints appear to its right.
+- The SDK still returns lines only. A separate positioning Worker reads CTC timing from the same official recognition model, refines glyph boundaries using whole-line pixels, and conservatively matches them to source text. Missing or ambiguous repeated characters are held for review. Horizontal hints appear above the source; vertical hints appear to its right.
+- Selecting a hint shows its source box and connector. A tap-to-position control sets the original glyph center directly in natural pixels. These inspection aids are excluded from exports.
 - Hints shrink or move slightly beside their own character; they never migrate into a neighboring column. Crowded hints are suppressed. Uncertain positions and phrase hints remain available in the annotation list for manual confirmation and adjustment.
 - Pinch to zoom, drag with one finger, use a wheel or fit the photo to the viewport. Photo and SVG annotations share the same transform.
 - Tap a hint to inspect source text, conversion and OCR / positioning confidence. Correct a whole recognized line, change its direction, adjust annotation offsets, hide / delete individual hints or restore them from the annotation list. Changing line text regenerates that line's annotations.
@@ -60,7 +62,7 @@ If `.cert/dev.pem` and `.cert/dev-key.pem` are absent, HTTPS mode generates a te
 
 For installation and offline testing, run `pnpm build` followed by `pnpm run preview:https`, then open `https://COMPUTER-IP:4173`. Keep the same base-path environment variable if testing a project deployment.
 
-1. While online, download all offline model resources (approximately 67.1 MiB) and wait for application file caching to complete.
+1. While online, download OCR resources (approximately 67.2 MiB) and wait for application file caching to complete. Offline rectification additionally needs the optional UVDoc model (approximately 30.2 MiB). Check and complete caches online after upgrading the app.
 2. Perform a real recognition, close the page, disconnect and open the same address again. Import another photo and recognize it.
 3. Check hints, corrections, saving and export. Storage belongs to the exact protocol, host and port, so switching addresses does not migrate records.
 4. On iPhone Safari, use Share → Add to Home Screen. On supported Android browsers, use the install / home-screen menu.
@@ -110,12 +112,12 @@ pnpm run test:e2e
 
 Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to use an existing Chromium / Edge binary. The tests generate their own input images and run genuine local OCR, without injecting recognition results or reading personal photos. See the [test report (Chinese)](../TESTING.md) for completed runs and their limits.
 
-- Positions are estimates from line quadrilaterals and whole-line pixel segmentation, not true character detections. Scores are not calibrated probabilities. Latin text, numbers, whitespace, punctuation, irregular fonts and OCR omissions reduce reliability; unreliable hints are suppressed by default.
-- Deskew corrects small whole-page tilt; it does not infer semantic upside-down orientation, flatten curved pages or correct perspective. Dense lines and complex layouts can still lack space. Hints that do not fit are suppressed; reduce size or adjust them manually.
+- Positions are estimates from recognition timing, pixel segmentation and source matching, not true character detections. Scores are not calibrated probabilities. Latin text, numbers, whitespace, punctuation, irregular fonts and OCR omissions reduce reliability; unreliable hints are suppressed by default.
+- Tilt correction and neural page rectification are separate steps. Neither infers semantic upside-down orientation. UVDoc may distort occluded, reflective, double-page or cluttered inputs: inspect the preview and undo if needed. Dense lines and complex layouts can still lack space. Hints that do not fit are suppressed; reduce size or adjust them manually.
 - Vertical direction is inferred from line geometry. OCR may split columns or misread characters; line direction and recognized text are editable. A real-phone vertical-text sample evaluation is still pending.
-- Perspective correction currently has only the `PerspectiveCorrector` extension contract; four-corner editing is not available. There is no live video OCR.
+- Automatic neural rectification is implemented; manual four-corner editing remains unavailable. There is no live video OCR. See [sources and accuracy boundaries (Chinese)](RECTIFICATION.md).
 - The current stable backend is single-threaded WASM. WebGPU is not enabled. Initial SDK/model setup remains substantial and needs real-phone memory and timing measurements.
 - A browser may decode an entire highly compressed image before downsizing, so a 30 MB file limit does not eliminate all extreme-image memory peaks.
 - Real iPhone / Android camera use, Safari memory limits, system PWA installation and physical offline tests require device verification; desktop touch emulation cannot replace them.
 
-Priorities are real-device memory / sample testing, stronger character localization, vertical column merging / reading order, and perspective correction.
+Priorities are original-photo / real-device accuracy and memory evaluation, character detection, vertical column merging / reading order, and manual four-corner correction.
