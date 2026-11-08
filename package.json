@@ -1,0 +1,47 @@
+{
+  "name": "fanjian-notes",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {"node": ">=22.12.0"},
+  "overrides": {"onnxruntime-web":"1.24.3"},
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "predev": "node scripts/prepare-ocr.mjs",
+    "dev:https": "vite --host 0.0.0.0 --mode https",
+    "predev:https": "node scripts/prepare-ocr.mjs",
+    "build": "tsc -b && vite build",
+    "prebuild": "node scripts/prepare-ocr.mjs",
+    "preview": "vite preview --host 0.0.0.0",
+    "preview:https": "vite preview --host 0.0.0.0 --mode https",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc -b",
+    "assets:ocr": "node scripts/prepare-ocr.mjs"
+  },
+  "dependencies": {
+    "@paddleocr/paddleocr-js": "0.4.2",
+    "opencc-js": "1.3.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "lucide-react": "^0.468.0",
+    "workbox-precaching": "^7.4.0",
+    "workbox-routing": "^7.4.0",
+    "workbox-strategies": "^7.4.0",
+    "workbox-window": "^7.4.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@tailwindcss/vite": "^4.1.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@types/node": "^24.0.0",
+    "@vitejs/plugin-basic-ssl": "^2.1.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "~5.9.3",
+    "vite": "^7.2.0",
+    "vite-plugin-pwa": "^1.1.0",
+    "vitest": "^3.2.4"
+  }
+}
