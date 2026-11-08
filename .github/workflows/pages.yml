@@ -33,6 +33,13 @@ jobs:
         run: |
           pnpm run typecheck
           pnpm test
+      - name: Restore verified official model archives
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            public/ocr/det.tar
+            public/ocr/rec.tar
+          key: ppocr-v5-mobile-0.4.2-78105604-f7e792bc
       - name: Build application and official OCR assets
         run: pnpm build
       - name: Prepare browser and Chinese test fonts

@@ -6,7 +6,7 @@ Site: <https://drivinggodj.github.io/fanjian-notes/>. Repository: <https://githu
 
 A push to `main` or a manual run of `Test and deploy GitHub Pages` installs locked dependencies, checks types and algorithms, downloads official model assets, builds for `/fanjian-notes/`, and runs real OCR / offline interaction tests at that project path. Only a successful build is uploaded from `dist/` and deployed to the `github-pages` environment. The Pages publishing source is GitHub Actions.
 
-Models, SDK runtime and WASM resources are prepared in CI and deployed with the application, rather than committed as large source files. The browser requests same-origin static resources; user photos and OCR text never enter Actions or a server.
+Models, SDK runtime and WASM resources are prepared in CI and deployed with the application. Model archives are cached between builds and checked against pinned SHA-256 digests. Missing files are retried from the official host or recovered as identical verified files from the published site, rather than committed as large model source files. The browser requests same-origin static resources; user photos and OCR text never enter Actions or a server.
 
 ## Reproduce the project-path build locally
 

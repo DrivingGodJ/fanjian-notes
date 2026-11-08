@@ -14,7 +14,7 @@ pnpm run assets:ocr
 pnpm dev
 ```
 
-Open `http://localhost:5173`. npm is also supported: `npm install` and `npm run dev`; the predev hook prepares model assets automatically. `npm run assets:ocr` can run preparation explicitly. Prepared resources are reused. Models download from Paddle's official asset host and are then served with the application; photos and recognized text are never included in those requests.
+Open `http://localhost:5173`. npm is also supported: `npm install` and `npm run dev`; the predev hook prepares model assets automatically. `npm run assets:ocr` can run preparation explicitly. Prepared resources are reused after checking pinned SHA-256 digests. Downloads try Paddle's official asset host first; if it is unreachable, the published site provides the same digest-verified archives. Photos and recognized text are never included in those requests.
 
 Both npm overrides and pnpm-workspace.yaml pin ONNX Runtime to match the SDK's bundled Worker. A pnpm lockfile is provided. For GitHub Pages and a non-root base path, see [deployment instructions](DEPLOYMENT.en.md).
 

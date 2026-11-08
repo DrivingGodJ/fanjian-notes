@@ -13,7 +13,7 @@ npm install
 npm run dev
 ```
 
-打开终端显示的 `http://localhost:5173`。`predev` 会自动准备官方模型、Worker 与配套 WASM。也可单独执行 `npm run assets:ocr`。已准备资源会复用；模型仅从 Paddle 官方地址下载，用户照片与文本从不参与此下载。字体和图标作为静态资产随源码提供。
+打开终端显示的 `http://localhost:5173`。`predev` 会自动准备官方模型、Worker 与配套 WASM。也可单独执行 `npm run assets:ocr`。已准备资源会复用并核对固定 SHA-256；下载优先使用 Paddle 官方地址，连接失败时从本站已发布版本取回校验值完全一致的模型。用户照片与文本从不参与这些下载。字体和图标作为静态资产随源码提供。
 
 如果使用 pnpm：`pnpm install`、`pnpm run assets:ocr`、`pnpm dev`。项目同时在 package.json 的 overrides 和 pnpm-workspace.yaml 中固定 ORT 版本，避免 SDK 内置 Worker 和 WASM 不一致。包含 pnpm 锁文件。
 

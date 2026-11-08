@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { readFile, writeFile, mkdir, copyFile, readdir, stat, rename } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, copyFile, readdir, rename } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 const require=createRequire(import.meta.url), root=path.resolve(import.meta.dirname,'..'), dest=path.join(root,'public/ocr');
@@ -17,15 +17,30 @@ const files=['worker.js'];
 for(const name of ['ort-wasm-simd-threaded.mjs','ort-wasm-simd-threaded.wasm','ort-wasm-simd-threaded.jsep.mjs','ort-wasm-simd-threaded.jsep.wasm']){
   await copyFile(path.join(ort,'dist',name),path.join(dest,name));files.push(name);
 }
+const modelHashes={det:'781056046c9ed77a15c94681605db6a0f62317c2e9cce6931c71da2478d4bc30',rec:'f7e792bc836f36e7ef895ad47c426d75b0b75b1650caa6d63fe9418441ffba8c'};
+const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
+async function fetchModel(url,expectedHash){
+  const response=await fetch(url,{signal:AbortSignal.timeout(45000)});
+  if(!response.ok)throw new Error(`HTTP ${response.status}`);
+  const bytes=Buffer.from(await response.arrayBuffer());
+  if(bytes.subarray(257,262).toString()!=='ustar'||digest(bytes)!==expectedHash)throw new Error('Official model archive checksum mismatch');
+  return bytes;
+}
 for(const [short,name] of [['det','PP-OCRv5_mobile_det'],['rec','PP-OCRv5_mobile_rec']]) {
   const file=`${short}.tar`, out=path.join(dest,file);
-  if((await stat(out).catch(()=>({size:0}))).size<100000) {
-    const url=`https://paddle-model-ecology.bj.bcebos.com/paddlex/official_inference_model/paddle3.0.0/${name}_onnx_infer.tar`;
-    console.log(`Downloading official ${name}…`);
-    const response=await fetch(url,{signal:AbortSignal.timeout(180000)});
-    if(!response.ok)throw new Error(`${response.status}: ${url}`);
-    const bytes=Buffer.from(await response.arrayBuffer());
-    if(bytes.subarray(257,262).toString()!=='ustar')throw new Error('Expected uncompressed ustar archive');
+  const cached=await readFile(out).catch(()=>null);
+  if(!cached||digest(cached)!==modelHashes[short]) {
+    const sources=[`https://paddle-model-ecology.bj.bcebos.com/paddlex/official_inference_model/paddle3.0.0/${name}_onnx_infer.tar`,`https://drivinggodj.github.io/fanjian-notes/ocr/${file}`];
+    let bytes;
+    for(const url of sources){
+      for(let attempt=1;attempt<=2&&!bytes;attempt++){
+        console.log(`Downloading verified ${name}, attempt ${attempt}: ${new URL(url).host}`);
+        try{bytes=await fetchModel(url,modelHashes[short]);}
+        catch(error){console.warn(`Model download failed: ${error.message}`);}
+      }
+      if(bytes)break;
+    }
+    if(!bytes)throw new Error(`Unable to download the pinned official model: ${name}`);
     await writeFile(out+'.partial',bytes);await rename(out+'.partial',out);
   }
   files.push(file);
