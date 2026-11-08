@@ -7,7 +7,7 @@ test('automatic deskew previews its correction and allows a manual override',asy
   return c.toDataURL('image/png').split(',')[1];
  });
  await page.getByTestId('file-upload').setInputFiles({name:'竖排倾斜测试.png',mimeType:'image/png',buffer:Buffer.from(data,'base64')});
- const angle=page.getByLabel('拉直角度',{exact:true});await expect(page.getByRole('button',{name:'开始本地识别',exact:false})).toBeEnabled({timeout:30000});
+ const angle=page.getByLabel('拉直角度',{exact:true});await expect(page.locator('.straighten-controls')).toContainText('竖排文字',{timeout:30000});await expect(page.getByRole('button',{name:'开始本地识别',exact:false})).toBeEnabled();
  const correction=Number(await angle.inputValue());expect(correction).toBeLessThan(-3.5);expect(correction).toBeGreaterThan(-6.5);
  await expect(page.locator('.straighten-controls')).toContainText('竖排文字');
  await page.screenshot({path:testInfo.outputPath('auto-deskew-mobile.png'),fullPage:true});
