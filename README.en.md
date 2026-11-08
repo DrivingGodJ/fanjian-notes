@@ -20,6 +20,10 @@ For example, 「這是一個美麗的世界」 receives only three hints: 「這
 - Tap a hint to inspect its source, conversion and confidence; correct recognized text, adjust positions or hide individual hints.
 - Save your reading state locally or export the photo with its visible annotations as PNG / JPEG.
 - Install the PWA and recognize text offline after caching the application and approximately 67.1 MiB of model resources.
+- The interface and reading hints use locally hosted Source Han Serif, cached for offline use. Light and dark modes follow the system automatically while photos retain their original appearance.
+- iOS home-screen artwork uses a book with 「書 / 书」 annotation: [design preview](docs/screenshots/icon-preview.png) · [1024px master](public/icon-1024.png).
+
+![Source Han Serif and the automatic dark appearance](docs/screenshots/home-dark.png)
 
 Character locations currently use quadrilateral geometry and limited pixel refinement. Complex layouts may need manual correction. Real-phone performance and vertical-text samples still need broader evaluation.
 

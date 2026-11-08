@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
     base,scope:base,
     strategies: 'injectManifest', srcDir: 'src', filename: 'sw.ts',
     registerType: 'prompt', injectRegister: false,
-    injectManifest: { globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'], globIgnores: ['ocr/**','assets/worker-entry-*'], maximumFileSizeToCacheInBytes: 16000000 },
+    injectManifest: { globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,woff2,txt}'], globIgnores: ['ocr/**','assets/worker-entry-*'], maximumFileSizeToCacheInBytes: 16000000 },
     manifest: {
       name: '繁简旁注', short_name: '繁简旁注', description: '看原照片，读简体旁注',
       lang: 'zh-CN', id:base,scope:base,start_url:base, display: 'standalone', orientation: 'any',

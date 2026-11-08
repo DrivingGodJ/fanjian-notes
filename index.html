@@ -3,12 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#f6f7f2" />
+    <meta name="theme-color" content="#f6f7f2" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#121b16" media="(prefers-color-scheme: dark)" />
     <meta name="description" content="看原照片，读简体旁注。完全在设备本地运行的繁体中文 OCR 阅读工具。" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="繁简旁注" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="icon" type="image/svg+xml" href="%BASE_URL%icon.svg" />
-    <link rel="apple-touch-icon" href="%BASE_URL%icon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="%BASE_URL%icon-180.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="%BASE_URL%icon-167.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="%BASE_URL%icon-152.png" />
+    <link rel="preload" href="%BASE_URL%fonts/SourceHanSerifCN-VF.woff2" as="font" type="font/woff2" crossorigin />
     <title>繁简旁注 · 让阅读自然发生</title>
   </head>
   <body>

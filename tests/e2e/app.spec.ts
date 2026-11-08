@@ -6,6 +6,7 @@ async function fixture(page:Page){
 test('mobile home, demo, shared transform, correction, export and persistence',async({page,context},testInfo)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('./');
  await expect(page.getByRole('button',{name:'拍照识别',exact:true})).toBeVisible();
+ await page.evaluate(()=>document.fonts.load('400 16px "Source Han Serif"','繁简旁注'));
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:testInfo.outputPath('home-mobile.png'),fullPage:true});
  await page.getByRole('button',{name:'体验示例',exact:true}).click();
@@ -48,7 +49,32 @@ test('crop and rotation preview share the actual output geometry; cancel restore
  await expect(page.getByLabel('待识别照片与裁剪区域')).toHaveAttribute('viewBox','0 0 585 1600');
 });
 test('desktop home has no overflow',async({page},testInfo)=>{
- await page.setViewportSize({width:1440,height:1040});await page.goto('./');await expect(page.locator('.sidebar')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:testInfo.outputPath('home-desktop.png'),fullPage:true});
+ await page.setViewportSize({width:1440,height:1040});await page.goto('./');await page.evaluate(()=>document.fonts.load('400 16px "Source Han Serif"','繁简旁注'));await expect(page.locator('.sidebar')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:testInfo.outputPath('home-desktop.png'),fullPage:true});
+});
+test('Source Han Serif loads locally and UI follows live system theme changes',async({page},testInfo)=>{
+ await page.emulateMedia({colorScheme:'light'});await page.goto('./');
+ await page.evaluate(()=>document.fonts.load('600 24px "Source Han Serif"','繁简旁注'));
+ expect(await page.evaluate(()=>[...document.fonts].some(f=>f.family==='Source Han Serif'&&f.status==='loaded'))).toBe(true);
+ await expect(page.locator('html')).toHaveCSS('font-family',/Source Han Serif/);
+ await expect(page.locator('html')).toHaveCSS('background-color','rgb(246, 247, 242)');
+ await page.emulateMedia({colorScheme:'dark'});
+ await expect(page.locator('html')).toHaveCSS('background-color','rgb(18, 27, 22)');
+ await expect(page.locator('html')).toHaveCSS('color-scheme','dark');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:testInfo.outputPath('home-dark-mobile.png'),fullPage:true});
+ await page.setViewportSize({width:1440,height:1040});await page.screenshot({path:testInfo.outputPath('home-dark-desktop.png'),fullPage:true});await page.setViewportSize({width:390,height:844});
+ await page.getByRole('button',{name:'离线模型管理',exact:true}).click();await expect(page.getByRole('dialog',{name:'离线模型管理',exact:true})).toHaveCSS('background-color','rgb(26, 40, 29)');
+ await page.screenshot({path:testInfo.outputPath('models-dark-mobile.png')});
+ await page.getByRole('button',{name:'关闭模型管理',exact:true}).click();
+ await page.getByRole('button',{name:'体验示例',exact:true}).click();
+ await expect(page.getByTestId('reading-svg')).toBeVisible();
+ const image=page.getByTestId('reading-svg').locator('image'),href=await image.getAttribute('href');
+ await expect(image).toHaveCSS('filter','none');
+ await page.screenshot({path:testInfo.outputPath('reader-dark-mobile.png')});
+ await page.emulateMedia({colorScheme:'light'});
+ await expect(page.locator('html')).toHaveCSS('background-color','rgb(246, 247, 242)');
+ await expect(image).toHaveAttribute('href',href!);await expect(image).toHaveCSS('filter','none');
+ await page.emulateMedia({colorScheme:'dark'});await expect(page.locator('html')).toHaveCSS('background-color','rgb(18, 27, 22)');
 });
 test('real traditional OCR, no upload, offline cold reload and recognition',async({page,context},testInfo)=>{
  page.on('requestfailed',r=>console.log('FAILED_REQUEST',r.url(),r.failure()?.errorText));
@@ -65,6 +91,8 @@ test('real traditional OCR, no upload, offline cold reload and recognition',asyn
  await page.getByRole('button',{name:'关闭面板',exact:true}).click();await page.screenshot({path:testInfo.outputPath('real-ocr-mobile.png')});
  await page.evaluate(async()=>{const r=await navigator.serviceWorker.ready;if(!r.active)throw Error('No active SW');});
  await context.setOffline(true);await page.reload();await expect(page.getByRole('button',{name:'拍照识别',exact:true})).toBeVisible();
+ await page.evaluate(()=>document.fonts.load('400 16px "Source Han Serif"','繁简旁注'));
+ expect(await page.evaluate(()=>[...document.fonts].some(f=>f.family==='Source Han Serif'&&f.status==='loaded'))).toBe(true);
  await page.getByTestId('file-upload').setInputFiles(image);await page.getByRole('button',{name:'开始本地识别',exact:false}).click();await page.getByTestId('reading-svg').or(page.locator('.processing [role="alert"]')).waitFor({timeout:150000});await expect(page.locator('.processing [role="alert"]')).toHaveCount(0);await expect(page.getByTestId('reading-svg')).toBeVisible();
  expect(requests.filter(r=>r.method!=='GET')).toEqual([]);expect(requests.every(r=>r.url.startsWith(new URL(testInfo.project.use.baseURL!).origin+'/')||r.url.startsWith('blob:'))).toBe(true);expect(errors).toEqual([]);
 });

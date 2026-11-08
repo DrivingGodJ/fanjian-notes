@@ -29,6 +29,9 @@ Both npm overrides and pnpm-workspace.yaml pin ONNX Runtime to match the SDK's b
 - Tap a hint to inspect source text, conversion and OCR / positioning confidence. Correct a whole recognized line, change its direction, adjust annotation offsets, hide / delete individual hints or restore them from the annotation list. Changing line text regenerates that line's annotations.
 - Adjust size, color, opacity and a light background. Canvas PNG / JPEG export uses the same layout as SVG, includes the complete processed photo and currently visible hints, and is independent of viewport zoom.
 - IndexedDB stores photos, recognized lines, annotations, corrections, style and view state. Recognition saves automatically; use Save during reading. Returning home also saves.
+- The interface and SVG / Canvas hints use Adobe's unmodified official Source Han Serif Chinese regional variable font. The approximately 9.9 MiB font is hosted with the app and precached for offline use. Copyright and the SIL OFL 1.1 license are in `public/fonts/OFL.txt`.
+- `prefers-color-scheme` follows live system light/dark changes, including the browser theme-color metadata. Theme changes affect the interface without inverting photos or changing chosen annotation colors.
+- The iOS icon combines a jade book with outlined Source Han Serif 「書 / 书」 hints. Opaque 180, 167 and 152px PNGs are supplied alongside PWA 192/512px icons, a 1024px master and SVG artwork. The OS applies the outer rounded mask; supplied files are full squares.
 
 The home-page sample is generated with Canvas and preset text / coordinates. It is explicitly marked as a demonstration, not as an OCR result.
 

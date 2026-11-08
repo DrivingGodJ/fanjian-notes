@@ -13,7 +13,7 @@ npm install
 npm run dev
 ```
 
-打开终端显示的 `http://localhost:5173`。`predev` 会自动准备官方模型、Worker、配套 WASM 和图标。也可单独执行 `npm run assets:ocr`。已准备资源会复用；模型仅从 Paddle 官方地址下载，用户照片与文本从不参与此下载。
+打开终端显示的 `http://localhost:5173`。`predev` 会自动准备官方模型、Worker 与配套 WASM。也可单独执行 `npm run assets:ocr`。已准备资源会复用；模型仅从 Paddle 官方地址下载，用户照片与文本从不参与此下载。字体和图标作为静态资产随源码提供。
 
 如果使用 pnpm：`pnpm install`、`pnpm run assets:ocr`、`pnpm dev`。项目同时在 package.json 的 overrides 和 pnpm-workspace.yaml 中固定 ORT 版本，避免 SDK 内置 Worker 和 WASM 不一致。包含 pnpm 锁文件。
 
@@ -28,6 +28,9 @@ npm run dev
 - 修改识别原文、手动切换行方向、微调旁注位置、隐藏 / 删除与恢复单个旁注；字号、颜色、透明度、淡色背景。
 - Canvas 导出 PNG / JPEG，与 SVG 共用标注布局；导出完整处理后照片，包含当前可见旁注，不受屏幕缩放影响。
 - IndexedDB 阅读记录、照片、修改、旁注样式与视图位置；识别结束自动保存，阅读时手动保存，返回首页保存。
+- 界面与 SVG / Canvas 简体旁注统一使用 Adobe 思源宋体官方中文区域可变字体，未修改字体文件；字体约 9.9 MiB，由本站托管并纳入应用预缓存。字体版权与 SIL OFL 1.1 许可见 `public/fonts/OFL.txt`。
+- 通过 `prefers-color-scheme` 实时跟随系统深浅色，浏览器顶栏颜色一并适配；主题只影响界面，不反色照片或改动已选择的旁注颜色。
+- iOS 主屏幕图标使用青绿色书页和思源宋体「書 / 书」旁注，已提供 180、167、152 像素的不透明 PNG；另有 PWA 192 / 512 像素版、1024 像素母版和字形转为轮廓的 SVG。系统负责裁切外圆角，原始文件不预裁圆角。
 - 可安装 PWA、离线资源下载与 SHA-256 校验、缓存状态与持久存储申请。无分析 SDK、无照片上传、无登录。
 
 点击首页的“体验示例”可直接试用交互。示例使用 Canvas 生成的纸页与预置文本 / 坐标，界面明确标注为示例，**不是 OCR 测试结果**。
@@ -92,7 +95,7 @@ src/
   sw.ts               应用预缓存与 OCR 资源路由
 tests/unit/           转换、字符对齐、定位、布局与坐标变换
 tests/e2e/            关键交互及真实 OCR / 离线冷启动测试
-scripts/prepare-ocr.mjs 官方资源准备、版本校验、摘要清单与图标
+scripts/prepare-ocr.mjs 官方资源准备、版本校验与摘要清单
 public/ocr/           自动生成的本地资源（不提交版本库）
 dist/                 可直接部署的正式构建
 ```
@@ -110,7 +113,7 @@ dist/                 可直接部署的正式构建
 
 ## 验证命令与限制
 
-本次实际验证结果见 [TESTING.md](../TESTING.md)：类型检查、生产构建、28 项单元测试与 5 项交互测试全部通过，包括项目子路径下的真实 OCR 与离线冷启动。上线配置见 [GitHub Pages 部署](DEPLOYMENT.md)。
+本次实际验证结果见 [TESTING.md](../TESTING.md)：类型检查、生产构建、28 项单元测试与 6 项交互测试全部通过，包括系统主题实时切换、字体离线缓存、项目子路径下的真实 OCR 与离线冷启动。上线配置见 [GitHub Pages 部署](DEPLOYMENT.md)。
 
 ```powershell
 npm run typecheck
