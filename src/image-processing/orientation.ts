@@ -118,12 +118,16 @@ export function scoreOrientation(raw:readonly [number,number,number,number]):{
 }{
  const maxRaw=Math.max(...raw);
  if(!Number.isFinite(maxRaw)||maxRaw<1.2)return {turns:0,degrees:0,confidence:0};
- const L=raw.map(v=>Math.log1p(Math.max(0,v)));
+ const cleaned=raw.map(v=>v>=.4?v:0);
+ const L=cleaned.map(v=>Math.log1p(v));
+ const scores=[0,0,0,0];
  let bestIdx=0,bestScore=-Infinity;
  for(let r=0;r<4;r++){
   const score=L[r]+L[(r+3)%4]+2.5*Math.min(L[r],L[(r+3)%4])-2*L[(r+1)%4]-2*L[(r+2)%4]+.05*L[r];
+  scores[r]=score;
   if(score>bestScore){bestScore=score;bestIdx=r;}
  }
+ if(bestIdx!==0&&(scores[bestIdx]<=scores[0]+.5||cleaned[bestIdx]<=0))bestIdx=0;
  return {turns:bestIdx as 0|1|2|3,degrees:(bestIdx*90) as 0|90|180|270,confidence:Math.min(1,maxRaw/6)};
 }
 

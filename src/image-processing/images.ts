@@ -53,6 +53,7 @@ export async function resizedCanvas(blob:Blob,maxSide=2600,maxPixels=6000000){
   ]);
   // Some mobile WebKit contexts decode raw JPEG pixels without applying EXIF orientation.
   const needsExifFix = !!head && head.orientation >= 5 && head.orientation <= 8
+    && head.sofWidth !== head.sofHeight
     && image.naturalWidth === head.sofWidth && image.naturalHeight === head.sofHeight;
   const srcW = needsExifFix ? image.naturalHeight : image.naturalWidth;
   const srcH = needsExifFix ? image.naturalWidth : image.naturalHeight;

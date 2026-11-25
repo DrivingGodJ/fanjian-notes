@@ -24,6 +24,13 @@ describe('4-way OCR text orientation detection', () => {
     expect(r.confidence).toBe(0);
   });
 
+  it('keeps upright vertical book photos at 0 degrees when only 90-CCW or noisy hits fire', () => {
+    expect(scoreOrientation([0, 0, 0, 8.5]).degrees).toBe(0);
+    expect(scoreOrientation([0.01, 0, 0, 10.79]).degrees).toBe(0);
+    expect(scoreOrientation([0, 0, 0.15, 8.0]).degrees).toBe(0);
+    expect(scoreOrientation([6.0, 0, 0, 0]).degrees).toBe(0);
+  });
+
   it('extracts character-sized tiles from multi-line grayscale text', () => {
     const w = 320, h = 420;
     const gray = new Uint8Array(w * h).fill(238);
