@@ -23,3 +23,25 @@ test('auto-correction straightens tilted vertical page and re-recognize toggles 
  await page.getByRole('button',{name:'重新识别',exact:true}).click();
  await expect(page.getByTestId('reading-svg')).toBeVisible({timeout:150000});
 });
+
+test('sideways 90-degree landscape photo is automatically rotated upright by text orientation',async({page})=>{
+ await page.addInitScript(()=>{localStorage.setItem('fanjian-onboarding-dismissed','1');});
+ await page.goto('./');
+ const data=await page.evaluate(()=>{
+  // Build an upright 900x1200 vertical book page, then rotate it 90° CW into a sideways 1200x900 landscape image
+  const src=document.createElement('canvas');src.width=900;src.height=1200;const sg=src.getContext('2d')!;
+  sg.fillStyle='#fffdf2';sg.fillRect(0,0,900,1200);
+  sg.fillStyle='#1e2920';sg.font='48px "SimSun","Noto Serif CJK SC",serif';
+  for(let col=0;col<6;col++)Array.from('這是一個美麗的世界我們一起閱讀').forEach((char,row)=>sg.fillText(char,140+col*115,120+row*66));
+
+  const sideways=document.createElement('canvas');sideways.width=1200;sideways.height=900;
+  const g=sideways.getContext('2d')!;g.translate(600,450);g.rotate(Math.PI/2);g.drawImage(src,-450,-600);
+  return sideways.toDataURL('image/png').split(',')[1];
+ });
+ await page.getByTestId('file-upload').setInputFiles({name:'横屏误拍测试.png',mimeType:'image/png',buffer:Buffer.from(data,'base64')});
+ await expect(page.getByTestId('reading-svg')).toBeVisible({timeout:150000});
+ const img=page.getByTestId('reading-svg').locator('image');
+ const w=Number(await img.getAttribute('width')),h=Number(await img.getAttribute('height'));
+ expect(h).toBeGreaterThan(w);
+ expect(await page.getByTestId('annotation').count()).toBeGreaterThan(5);
+});

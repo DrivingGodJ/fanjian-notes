@@ -8,6 +8,7 @@ import {detectImageDocumentQuad,rectifyPerspective} from './perspective';
 import {enhanceDocumentImage} from './enhance';
 import {sampleAnnotationsColors} from './colors';
 import {rectifyImage} from './unwarp';
+import {detectImageOrientation} from './orientation';
 
 export interface PreprocessOptions {
  correct: boolean;
@@ -44,7 +45,18 @@ export async function autoPreprocessImage(
 ):Promise<PreparedImage>{
  let current=original;
  if(options.correct){
-  status('正在进行 3D 书页曲面与透视矫正…',.12);
+  status('正在检测文字朝向并自动转正…',.08);
+  try{
+   const orient=await detectImageOrientation(current,signal);
+   signal.throwIfAborted();
+   if(orient.turns!==0){
+    current=await transformImage(current,orient.turns,{left:0,top:0,right:1,bottom:1},0);
+    signal.throwIfAborted();
+   }
+  }catch(e){
+   if(e instanceof DOMException&&e.name==='AbortError')throw e;
+  }
+  status('正在进行 3D 书页曲面与透视矫正…',.14);
   try{
    current=await rectifyImage(current,signal,s=>status(s,.14));
    signal.throwIfAborted();

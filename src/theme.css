@@ -61,6 +61,7 @@
 .viewport-hint { bottom: 12px; }
 
 @media (max-width: 760px) {
+  .topbar .topbar-update { display: none; }
   .reader-header { height: auto; min-height: 60px; padding: max(10px, env(safe-area-inset-top)) 12px 10px; gap: 8px; }
   .reader-title h2 { max-width: 34vw; font-size: 12px; }
   .reader-title p { font-size: 9px; margin-top: 3px; }
