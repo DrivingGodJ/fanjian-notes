@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { extractOrientationTiles, scoreOrientation } from '../../src/image-processing/orientation';
+import { parseJpegMeta } from '../../src/image-processing/images';
 
 describe('4-way OCR text orientation detection', () => {
   it('picks the correct upright rotation across real-world observed score signatures', () => {
@@ -47,5 +48,40 @@ describe('4-way OCR text orientation detection', () => {
       expect(t.x + t.size).toBeLessThanOrEqual(960);
       expect(t.y + t.size).toBeLessThanOrEqual(1260);
     }
+  });
+
+  it('falls back to central grid scan when ink is heavily skewed without clean 1D bands', () => {
+    const w = 240, h = 240;
+    const gray = new Uint8Array(w * h).fill(240);
+    // Paint diagonal ink squares so 1D projection smears out
+    for (let i = 0; i < 6; i++) {
+      const cx = 55 + i * 24, cy = 55 + i * 24;
+      for (let dy = -7; dy <= 7; dy++) {
+        for (let dx = -7; dx <= 7; dx++) {
+          gray[(cy + dy) * w + (cx + dx)] = 30;
+        }
+      }
+    }
+    const tiles = extractOrientationTiles(gray, w, h, 720, 720, 12);
+    expect(tiles.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('parses EXIF orientation and SOF coded dimensions from JPEG header bytes', () => {
+    // Minimal JPEG with APP1 Exif (Orientation = 6, big-endian MM) + SOF0 (4032x3024)
+    const bytes = new Uint8Array([
+      0xff, 0xd8,
+      0xff, 0xe1, 0x00, 0x22, // APP1 len 34
+      0x45, 0x78, 0x69, 0x66, 0x00, 0x00, // "Exif\0\0"
+      0x4d, 0x4d, 0x00, 0x2a, 0x00, 0x00, 0x00, 0x08, // MM 42, IFD offset 8
+      0x00, 0x01, // 1 IFD entry
+      0x01, 0x12, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x06, 0x00, 0x00, // Orientation = 6
+      0x00, 0x00, 0x00, 0x00,
+      0xff, 0xc0, 0x00, 0x0b, 0x08, // SOF0 len 11, precision 8
+      0x0b, 0xd0, // height = 3024
+      0x0f, 0xc0, // width = 4032
+      0x03, 0x01, 0x11, 0x00, 0x02,
+      0xff, 0xd9
+    ]);
+    expect(parseJpegMeta(bytes)).toEqual({ orientation: 6, sofWidth: 4032, sofHeight: 3024 });
   });
 });

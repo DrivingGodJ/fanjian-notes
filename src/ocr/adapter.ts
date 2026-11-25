@@ -28,16 +28,16 @@ function abortable<T>(promise:Promise<T>,signal:AbortSignal):Promise<T>{
 }
 export async function recognize(image:PreparedImage,signal:AbortSignal,status:(label:string,progress?:number)=>void):Promise<OcrLine[]> {
   try{
-    status('检查本地模型资源');
+    status('检查本地模型资源',.05);
     await downloadModels((s,label)=>status(label,s.bytes/s.totalBytes*.45),signal);
     signal.throwIfAborted();
-    if(!instance){status('初始化本地识别引擎（首次可能需要较长时间）',.5);const {PaddleOCR}=await import('@paddleocr/paddleocr-js');signal.throwIfAborted();instance=await PaddleOCR.create(options);}
+    if(!instance){status('初始化本地识别引擎（首次可能需要较长时间）',.4);const {PaddleOCR}=await import('@paddleocr/paddleocr-js');signal.throwIfAborted();instance=await PaddleOCR.create(options);}
     await abortable(instance.initialize(),signal);
-    status('识别图片中的繁体文字',.65);
+    status('识别图片中的繁体文字',.7);
     const canvas=await resizedCanvas(image.blob,1600,2200000);signal.throwIfAborted();
     const [result]=await abortable(instance.predict(canvas,{textDetLimitSideLen:960,textDetLimitType:'max',textRecScoreThresh:.35}),signal);
     canvas.width=1;canvas.height=1;
     if(!result)throw new Error('没有返回识别结果，请重试。');
-    status('对齐字符与生成旁注',.93);return normalizeResult(result,image);
+    status('整理识别结果',.98);return normalizeResult(result,image);
   }catch(error){if(!(error instanceof DOMException&&error.name==='AbortError'))cancelOcr();if(error instanceof TypeError&&/fetch|network/i.test(error.message))throw new Error('本地资源读取失败。请联网打开离线模型管理，检查并补全缓存后重试。');throw error;}
 }

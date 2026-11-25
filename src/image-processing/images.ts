@@ -1,27 +1,79 @@
 import type { PreparedImage } from '../types';
+
+export interface JpegMeta {
+  orientation: number;
+  sofWidth: number;
+  sofHeight: number;
+}
+
+/** Parse EXIF Orientation (1..8) and coded SOF dimensions from the leading bytes of a JPEG. */
+export function parseJpegMeta(bytes: Uint8Array): JpegMeta | null {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (view.byteLength < 4 || view.getUint16(0) !== 0xffd8) return null;
+  let offset = 2, orientation = 1, sofWidth = 0, sofHeight = 0;
+  while (offset + 4 <= view.byteLength) {
+    const marker = view.getUint16(offset);
+    offset += 2;
+    if (marker === 0xffd9 || marker === 0xffda) break;
+    const len = view.getUint16(offset);
+    if (len < 2 || offset + len > view.byteLength) break;
+    if (marker === 0xffe1 && offset + 10 <= view.byteLength && view.getUint32(offset + 2) === 0x45786966) {
+      const tiff = offset + 8;
+      const le = view.getUint16(tiff) === 0x4949;
+      const ifd = tiff + view.getUint32(tiff + 4, le);
+      if (ifd + 2 <= view.byteLength) {
+        const entries = view.getUint16(ifd, le);
+        for (let i = 0; i < entries; i++) {
+          const e = ifd + 2 + i * 12;
+          if (e + 12 > view.byteLength) break;
+          if (view.getUint16(e, le) === 0x0112) {
+            orientation = view.getUint16(e + 8, le);
+            break;
+          }
+        }
+      }
+    } else if (marker >= 0xffc0 && marker <= 0xffc3 && offset + 9 <= view.byteLength) {
+      sofHeight = view.getUint16(offset + 3);
+      sofWidth = view.getUint16(offset + 5);
+    }
+    offset += len;
+  }
+  return sofWidth && sofHeight ? { orientation, sofWidth, sofHeight } : null;
+}
+
 export async function loadImage(blob:Blob):Promise<HTMLImageElement>{
   const url=URL.createObjectURL(blob),image=new Image();
   try{image.src=url;await image.decode();return image;}finally{URL.revokeObjectURL(url);}
 }
-async function decodeSource(blob:Blob):Promise<{draw:CanvasImageSource;width:number;height:number;close?:()=>void}>{
-  if(typeof createImageBitmap==='function'){
-    try{
-      const bmp=await createImageBitmap(blob,{imageOrientation:'from-image'});
-      return {draw:bmp,width:bmp.width,height:bmp.height,close:()=>bmp.close()};
-    }catch{}
-  }
-  const img=await loadImage(blob);
-  return {draw:img,width:img.naturalWidth,height:img.naturalHeight};
-}
 export function canvasBlob(canvas:HTMLCanvasElement,type='image/jpeg',quality=.96):Promise<Blob>{return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('图片生成失败，请尝试较小的图片。')),type,quality));}
 export async function resizedCanvas(blob:Blob,maxSide=2600,maxPixels=6000000){
-  const src=await decodeSource(blob);
-  try{
-    const ratio=Math.min(1,maxSide/Math.max(src.width,src.height),Math.sqrt(maxPixels/(src.width*src.height)));
-    const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(src.width*ratio));canvas.height=Math.max(1,Math.round(src.height*ratio));
-    const ctx=canvas.getContext('2d');if(!ctx)throw new Error('此浏览器无法创建图像画布。');
-    ctx.drawImage(src.draw,0,0,canvas.width,canvas.height);return canvas;
-  }finally{src.close?.();}
+  const [image, head] = await Promise.all([
+    loadImage(blob),
+    blob.slice(0, 65536).arrayBuffer().then(b => parseJpegMeta(new Uint8Array(b))).catch(() => null)
+  ]);
+  // Some mobile WebKit contexts decode raw JPEG pixels without applying EXIF orientation.
+  const needsExifFix = !!head && head.orientation >= 5 && head.orientation <= 8
+    && image.naturalWidth === head.sofWidth && image.naturalHeight === head.sofHeight;
+  const srcW = needsExifFix ? image.naturalHeight : image.naturalWidth;
+  const srcH = needsExifFix ? image.naturalWidth : image.naturalHeight;
+  const ratio=Math.min(1,maxSide/Math.max(srcW,srcH),Math.sqrt(maxPixels/(srcW*srcH)));
+  const cw=Math.max(1,Math.round(srcW*ratio)),ch=Math.max(1,Math.round(srcH*ratio));
+  const canvas=document.createElement('canvas');canvas.width=cw;canvas.height=ch;
+  const ctx=canvas.getContext('2d');if(!ctx)throw new Error('此浏览器无法创建图像画布。');
+  if(needsExifFix&&head){
+    ctx.save();
+    const dw=Math.max(1,Math.round(image.naturalWidth*ratio)),dh=Math.max(1,Math.round(image.naturalHeight*ratio));
+    ctx.translate(cw/2,ch/2);
+    if(head.orientation===5){ctx.rotate(Math.PI/2);ctx.scale(1,-1);}
+    else if(head.orientation===6){ctx.rotate(Math.PI/2);}
+    else if(head.orientation===7){ctx.rotate(-Math.PI/2);ctx.scale(1,-1);}
+    else if(head.orientation===8){ctx.rotate(-Math.PI/2);}
+    ctx.drawImage(image,-dw/2,-dh/2,dw,dh);
+    ctx.restore();
+  }else{
+    ctx.drawImage(image,0,0,cw,ch);
+  }
+  return canvas;
 }
 export async function prepareImage(file:File):Promise<PreparedImage>{
   if(file.size>30*1048576)throw new Error('图片超过 30 MB，请先选择尺寸较小的照片。');
@@ -49,17 +101,14 @@ export function sampleBorderColor(source:CanvasImageSource):string{
   }catch{return '#fffdf5';}
 }
 export async function transformImage(image:PreparedImage,turns:number,crop:Crop,angle=0):Promise<PreparedImage>{
-  const src=await decodeSource(image.blob);
-  try{
-    const rotated=document.createElement('canvas'),degrees=turns*90+angle;
-    const size=rotatedSize(src.width,src.height,degrees);rotated.width=size.width;rotated.height=size.height;
-    const ctx=rotated.getContext('2d')!;ctx.fillStyle=sampleBorderColor(src.draw);ctx.fillRect(0,0,rotated.width,rotated.height);ctx.translate(rotated.width/2,rotated.height/2);ctx.rotate(degrees*Math.PI/180);ctx.drawImage(src.draw,-src.width/2,-src.height/2);
-    const out=document.createElement('canvas');const x=Math.round(crop.left*rotated.width),y=Math.round(crop.top*rotated.height);
-    const cw=Math.max(1,Math.round((crop.right-crop.left)*rotated.width)),ch=Math.max(1,Math.round((crop.bottom-crop.top)*rotated.height)),ratio=Math.min(1,2600/Math.max(cw,ch),Math.sqrt(6000000/(cw*ch)));
-    out.width=Math.max(1,Math.round(cw*ratio));out.height=Math.max(1,Math.round(ch*ratio));
-    out.getContext('2d')!.drawImage(rotated,x,y,cw,ch,0,0,out.width,out.height);
-    const result={blob:await canvasBlob(out),width:out.width,height:out.height,name:image.name};rotated.width=1;out.width=1;return result;
-  }finally{src.close?.();}
+  const source=await loadImage(image.blob),rotated=document.createElement('canvas'),degrees=turns*90+angle;
+  const size=rotatedSize(image.width,image.height,degrees);rotated.width=size.width;rotated.height=size.height;
+  const ctx=rotated.getContext('2d')!;ctx.fillStyle=sampleBorderColor(source);ctx.fillRect(0,0,rotated.width,rotated.height);ctx.translate(rotated.width/2,rotated.height/2);ctx.rotate(degrees*Math.PI/180);ctx.drawImage(source,-image.width/2,-image.height/2);
+  const out=document.createElement('canvas');const x=Math.round(crop.left*rotated.width),y=Math.round(crop.top*rotated.height);
+  const cw=Math.max(1,Math.round((crop.right-crop.left)*rotated.width)),ch=Math.max(1,Math.round((crop.bottom-crop.top)*rotated.height)),ratio=Math.min(1,2600/Math.max(cw,ch),Math.sqrt(6000000/(cw*ch)));
+  out.width=Math.max(1,Math.round(cw*ratio));out.height=Math.max(1,Math.round(ch*ratio));
+  out.getContext('2d')!.drawImage(rotated,x,y,cw,ch,0,0,out.width,out.height);
+  const result={blob:await canvasBlob(out),width:out.width,height:out.height,name:image.name};rotated.width=1;out.width=1;return result;
 }
 /** Extension point: a future 4-corner homography transform can implement this contract. */
 export interface PerspectiveCorrector {correct(image:PreparedImage,corners:readonly [number,number][]):Promise<PreparedImage>}

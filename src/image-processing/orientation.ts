@@ -18,13 +18,17 @@ export function extractOrientationTiles(
 ):TileRect[]{
  if(w<24||h<24||gray.length!==w*h)return [];
  const integ=new Float64Array((w+1)*(h+1));
+ const cx0=Math.floor(w*.2),cx1=Math.ceil(w*.8),cy0=Math.floor(h*.2),cy1=Math.ceil(h*.8);
+ let cSum=0,cCount=0;
  for(let y=0;y<h;y++){
   let rs=0;
   for(let x=0;x<w;x++){
-   rs+=gray[y*w+x];
+   const v=gray[y*w+x];rs+=v;
    integ[(y+1)*(w+1)+x+1]=integ[y*(w+1)+x+1]+rs;
+   if(x>=cx0&&x<cx1&&y>=cy0&&y<cy1){cSum+=v;cCount++;}
   }
  }
+ const lightPaper=(cCount?cSum/cCount:128)>118;
  const r=Math.max(8,Math.round(Math.min(w,h)/30));
  const x0=Math.floor(w*.14),x1=Math.ceil(w*.86),y0=Math.floor(h*.14),y1=Math.ceil(h*.86);
  const ink=new Uint8Array(w*h);
@@ -34,7 +38,8 @@ export function extractOrientationTiles(
   for(let x=x0;x<x1;x++){
    const b0=Math.max(0,x-r),b1=Math.min(w,x+r+1);
    const loc=(integ[a1*(w+1)+b1]-integ[a0*(w+1)+b1]-integ[a1*(w+1)+b0]+integ[a0*(w+1)+b0])/((a1-a0)*(b1-b0));
-   if(gray[y*w+x]<loc-18&&gray[y*w+x]<210){ink[y*w+x]=1;px[x]++;py[y]++;}
+   const v=gray[y*w+x];
+   if(lightPaper?v<loc-18&&v<210:v>loc+18&&v>55){ink[y*w+x]=1;px[x]++;py[y]++;}
   }
  }
  const energy=(arr:Float32Array)=>{let s=0;for(let i=1;i<arr.length;i++){const df=arr[i]-arr[i-1];s+=arr[i]*arr[i]+df*df*4;}return s;};
@@ -43,37 +48,60 @@ export function extractOrientationTiles(
  const startA=vertical?x0:y0,endA=vertical?x1:y1;
  const startB=vertical?y0:x0,endB=vertical?y1:x1;
  let maxP=0;for(let i=startA;i<endA;i++)if(prof[i]>maxP)maxP=prof[i];
- if(maxP<6)return [];
  const bands:[number,number][]=[];
- for(let i=startA;i<endA;i++){
-  if(prof[i]>maxP*.22){
-   let j=i;while(j<endA&&prof[j]>maxP*.12)j++;
-   if(j-i>=6&&j-i<=Math.min(w,h)*.14)bands.push([i,j]);
-   i=j;
-  }
- }
- if(!bands.length)return [];
- const thicks=bands.map(b=>b[1]-b[0]).sort((a,b)=>a-b);
- const medThick=thicks[Math.floor(thicks.length/2)];
- const tile=Math.max(12,Math.round(medThick*1.1));
- const tiles:TileRect[]=[];
- for(const [b0,b1] of bands){
-  const midA=(b0+b1)/2;
-  for(let pos=startB+tile;pos<endB-tile;pos+=Math.round(tile*1.05)){
-   let count=0;
-   const tx0=Math.round((vertical?midA:pos)-tile/2);
-   const ty0=Math.round((vertical?pos:midA)-tile/2);
-   for(let yy=Math.max(0,ty0);yy<Math.min(h,ty0+tile);yy+=2)
-    for(let xx=Math.max(0,tx0);xx<Math.min(w,tx0+tile);xx+=2)count+=ink[yy*w+xx];
-   const ratio=count/Math.max(1,(tile/2)*(tile/2));
-   if(ratio>.1&&ratio<.65){
-    const size=tile/w*srcW;
-    const x=Math.max(0,Math.min(srcW-size,tx0/w*srcW));
-    const y=Math.max(0,Math.min(srcH-size,ty0/h*srcH));
-    tiles.push({x,y,size});
+ if(maxP>=6){
+  for(let i=startA;i<endA;i++){
+   if(prof[i]>maxP*.22){
+    let j=i;while(j<endA&&prof[j]>maxP*.12)j++;
+    if(j-i>=6&&j-i<=Math.min(w,h)*.22)bands.push([i,j]);
+    i=j;
    }
   }
  }
+
+ const tiles:TileRect[]=[];
+ if(bands.length){
+  const thicks=bands.map(b=>b[1]-b[0]).sort((a,b)=>a-b);
+  const medThick=thicks[Math.floor(thicks.length/2)];
+  const tile=Math.max(12,Math.round(medThick*1.1));
+  for(const [b0,b1] of bands){
+   const midA=(b0+b1)/2;
+   for(let pos=startB+tile;pos<endB-tile;pos+=Math.round(tile*1.05)){
+    let count=0;
+    const tx0=Math.round((vertical?midA:pos)-tile/2);
+    const ty0=Math.round((vertical?pos:midA)-tile/2);
+    for(let yy=Math.max(0,ty0);yy<Math.min(h,ty0+tile);yy+=2)
+     for(let xx=Math.max(0,tx0);xx<Math.min(w,tx0+tile);xx+=2)count+=ink[yy*w+xx];
+    const ratio=count/Math.max(1,(tile/2)*(tile/2));
+    if(ratio>.1&&ratio<.65){
+     const size=tile/w*srcW;
+     const x=Math.max(0,Math.min(srcW-size,tx0/w*srcW));
+     const y=Math.max(0,Math.min(srcH-size,ty0/h*srcH));
+     tiles.push({x,y,size});
+    }
+   }
+  }
+ }
+
+ // Fallback grid scan for strongly skewed pages where 1D projection smears out bands.
+ if(tiles.length<3){
+  const tile=Math.max(16,Math.round(Math.min(w,h)*.08));
+  const stepGrid=Math.max(8,Math.round(tile*.85));
+  for(let gy=y0;gy<=y1-tile;gy+=stepGrid){
+   for(let gx=x0;gx<=x1-tile;gx+=stepGrid){
+    let count=0;
+    for(let yy=gy;yy<gy+tile;yy+=2)for(let xx=gx;xx<gx+tile;xx+=2)count+=ink[yy*w+xx];
+    const ratio=count/Math.max(1,(tile/2)*(tile/2));
+    if(ratio>.06&&ratio<.70){
+     const size=tile/w*srcW;
+     const x=Math.max(0,Math.min(srcW-size,gx/w*srcW));
+     const y=Math.max(0,Math.min(srcH-size,gy/h*srcH));
+     tiles.push({x,y,size});
+    }
+   }
+  }
+ }
+
  const step=Math.max(1,Math.floor(tiles.length/maxTiles));
  return tiles.filter((_,i)=>i%step===0).slice(0,maxTiles);
 }
@@ -105,14 +133,28 @@ export async function detectImageOrientation(
 ):Promise<{turns:0|1|2|3;degrees:0|90|180|270}>{
  if(typeof Worker==='undefined')return {turns:0,degrees:0};
  signal?.throwIfAborted();
- await downloadModels(()=>{},signal);
+ const {cancelOcr}=await import('../ocr/adapter');
+ cancelOcr();
+
+ let archive:ArrayBuffer;
+ let config:{charDict:string[]};
+ try{
+  [archive,config]=await Promise.all([
+   fetch(appPath('ocr/rec.tar'),{signal}).then(r=>{if(!r.ok)throw Error('fetch');return r.arrayBuffer();}),
+   fetch(appPath('ocr/rec-params.json'),{signal}).then(r=>{if(!r.ok)throw Error('fetch');return r.json();})
+  ]);
+ }catch{
+  signal?.throwIfAborted();
+  await downloadModels(()=>{},signal);
+  signal?.throwIfAborted();
+  [archive,config]=await Promise.all([
+   fetch(appPath('ocr/rec.tar'),{signal}).then(r=>{if(!r.ok)throw Error('无法读取方向检测模型');return r.arrayBuffer();}),
+   fetch(appPath('ocr/rec-params.json'),{signal}).then(r=>{if(!r.ok)throw Error('无法读取方向检测字典');return r.json();})
+  ]);
+ }
  signal?.throwIfAborted();
 
- const [archive,config,workCanvas]=await Promise.all([
-  fetch(appPath('ocr/rec.tar'),{signal}).then(r=>{if(!r.ok)throw Error('无法读取方向检测模型');return r.arrayBuffer();}),
-  fetch(appPath('ocr/rec-params.json'),{signal}).then(r=>{if(!r.ok)throw Error('无法读取方向检测字典');return r.json();}),
-  resizedCanvas(image.blob,1200,1500000)
- ]);
+ const workCanvas=await resizedCanvas(image.blob,1200,1500000);
  signal?.throwIfAborted();
 
  const sw=Math.min(600,workCanvas.width),sh=Math.max(1,Math.round(workCanvas.height*sw/workCanvas.width));

@@ -18,8 +18,9 @@ test('first-time onboarding prompt appears once, demo is removed, and home has n
  await expect(page.getByRole('button',{name:'立即安装离线模型',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'稍后再说',exact:true}).click();
  await expect(page.getByRole('dialog',{name:'首次使用模型安装引导',exact:true})).toHaveCount(0);
- await expect(page.getByRole('button',{name:'准备离线模型',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'准备离线模型',exact:true}).first()).toBeVisible();
  await expect(page.getByRole('button',{name:'拍照识别',exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'从相册导入',exact:true})).toHaveCount(0);
  await page.reload();
  await expect(page.getByRole('dialog',{name:'首次使用模型安装引导',exact:true})).toHaveCount(0);
  await expect(page.getByText('体验示例')).toHaveCount(0);
@@ -42,19 +43,20 @@ test('entering 我的阅读 provides working 返回首页 on mobile and desktop'
  await page.getByRole('button',{name:'全部记录',exact:true}).click();
  await expect(page.getByRole('heading',{name:'我的阅读',exact:true})).toBeVisible();
  await page.locator('.history-heading').getByRole('button',{name:'返回首页',exact:true}).click();
- await expect(page.getByRole('button',{name:'从相册导入',exact:true})).toBeVisible();
+ await expect(page.locator('.hero-actions').getByRole('button',{name:'准备离线模型',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'全部记录',exact:true}).click();
  await page.locator('.mobile-header').getByRole('button',{name:'返回首页',exact:true}).click();
- await expect(page.getByRole('button',{name:'从相册导入',exact:true})).toBeVisible();
+ await expect(page.locator('.hero-actions').getByRole('button',{name:'准备离线模型',exact:true})).toBeVisible();
 });
 
 test('camera uses full-screen frame without misleading inner guide box and supports fallback import after models ready',async({page})=>{
  await page.addInitScript(()=>{localStorage.setItem('fanjian-onboarding-dismissed','1');});
  await page.goto('./');
- await page.getByRole('button',{name:'准备离线模型',exact:true}).click();
+ await page.locator('.hero-actions').getByRole('button',{name:'准备离线模型',exact:true}).click();
  await page.getByRole('button',{name:'下载离线资源',exact:true}).click();
  await expect(page.getByRole('button',{name:'检查并补全缓存',exact:true})).toBeVisible({timeout:60000});
  await page.getByRole('button',{name:'关闭模型管理',exact:true}).click();
+ await expect(page.getByRole('button',{name:'从相册导入',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'拍照识别',exact:true}).click();
  await expect(page.locator('.camera-guide')).toHaveCount(0);
  await expect(page.locator('.camera-full-grid')).toBeVisible();

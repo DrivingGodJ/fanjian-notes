@@ -37,6 +37,8 @@ async function analyze<T>(operation:'deskew'|'align',image:GrayImage,target:{wid
 }
 export async function detectImageSkew(blob:Blob,signal?:AbortSignal){const image=await grayImage(blob,850,650000);return analyze<DeskewResult>('deskew',image,image,[],signal);}
 
+const yieldFrame=()=>new Promise<void>(r=>typeof requestAnimationFrame==='function'?requestAnimationFrame(()=>r()):setTimeout(r,0));
+
 export async function autoPreprocessImage(
  original:PreparedImage,
  options:PreprocessOptions,
@@ -45,24 +47,29 @@ export async function autoPreprocessImage(
 ):Promise<PreparedImage>{
  let current=original;
  if(options.correct){
-  status('正在检测文字朝向并自动转正…',.08);
+  status('正在检测文字朝向并自动转正…',.06);
+  await yieldFrame();
   try{
    const orient=await detectImageOrientation(current,signal);
    signal.throwIfAborted();
    if(orient.turns!==0){
+    status('已检测到文字方向，正在转正图片…',.14);
+    await yieldFrame();
     current=await transformImage(current,orient.turns,{left:0,top:0,right:1,bottom:1},0);
     signal.throwIfAborted();
    }
   }catch(e){
    if(e instanceof DOMException&&e.name==='AbortError')throw e;
   }
-  status('正在进行 3D 书页曲面与透视矫正…',.14);
+  status('正在进行 3D 书页曲面与透视矫正…',.18);
+  await yieldFrame();
   try{
-   current=await rectifyImage(current,signal,s=>status(s,.14));
+   current=await rectifyImage(current,signal,s=>status(s,.22));
    signal.throwIfAborted();
   }catch(e){
    if(e instanceof DOMException&&e.name==='AbortError')throw e;
-   status('使用基础透视与倾角矫正…',.15);
+   status('使用基础透视与倾角矫正…',.2);
+   await yieldFrame();
    const quad=await detectImageDocumentQuad(current.blob);
    signal.throwIfAborted();
    if(quad.detected){
@@ -78,10 +85,13 @@ export async function autoPreprocessImage(
   }
  }
  if(options.enhance){
-  status('自动锐化增强与均衡阴影…',.24);
+  status('自动锐化增强与均衡阴影…',.28);
+  await yieldFrame();
   current=await enhanceDocumentImage(current);
   signal.throwIfAborted();
  }
+ status('矫正与增强完成，开始识别文字…',.34);
+ await yieldFrame();
  return current;
 }
 

@@ -108,10 +108,16 @@ function App(){
   try{
    const processed=await autoPreprocessImage(original,options,abort.signal,(s,p)=>{if(taskId.current===id){setStep(s);if(p!==undefined)setProgress(p);}});
    abort.signal.throwIfAborted();
-   const lines=await recognize(processed,abort.signal,(s,p)=>{if(taskId.current===id){setStep(s);if(p!==undefined)setProgress(.26+p*.66);}});
+   const lines=await recognize(processed,abort.signal,(s,p)=>{if(taskId.current===id){setStep(s);if(p!==undefined)setProgress(.34+p*.44);}});
    abort.signal.throwIfAborted();
-   if(taskId.current===id){setStep('匹配字形与采样纸张底色');setProgress(.94);}
-   const result=await analyzeImageLines(processed,lines,abort.signal,s=>{if(taskId.current===id)setStep(s);});
+   if(taskId.current===id){setStep('逐字定位与采样纸张底色');setProgress(.78);}
+   const result=await analyzeImageLines(processed,lines,abort.signal,s=>{
+    if(taskId.current!==id)return;
+    setStep(s);
+    const m=/(\d+)\s*\/\s*(\d+)/.exec(s);
+    if(m)setProgress(Math.min(.96,.78+(Number(m[1])/Math.max(1,Number(m[2])))*.18));
+   });
+   if(taskId.current===id)setProgress(.98);
    const now=Date.now();
    const r:Reading={
     id:crypto.randomUUID(),name:original.name,createdAt:now,updatedAt:now,
@@ -214,10 +220,10 @@ function App(){
     <h1>看见原文。<br/>读懂<span className="serif-accent">每一字。</span><Leaf className="hero-leaf" size={34} strokeWidth={1.4}/></h1>
     <p>拍下一页繁体，原位替换为同色简体。<br/>自动矫正与清晰增强，让纸页阅读毫无负担。</p>
     <div className="hero-actions">
-     {modelReady
-      ?<button className="primary" disabled={importing} onClick={()=>{if(isMobileDevice())capture.current?.click();else setCamera(true);}}><CameraIcon size={20}/>拍照识别<ArrowRight size={17}/></button>
-      :<button className="primary" onClick={()=>setModels(true)}><ArrowDownToLine size={20}/>准备离线模型<ArrowRight size={17}/></button>}
-     <button className="secondary" disabled={importing} onClick={()=>upload.current?.click()}><ImagePlus size={19}/>{importing?'正在读取…':'从相册导入'}</button>
+     {modelReady?<>
+      <button className="primary" disabled={importing} onClick={()=>{if(isMobileDevice())capture.current?.click();else setCamera(true);}}><CameraIcon size={20}/>拍照识别<ArrowRight size={17}/></button>
+      <button className="secondary" disabled={importing} onClick={()=>upload.current?.click()}><ImagePlus size={19}/>{importing?'正在读取…':'从相册导入'}</button>
+     </>:<button className="primary" onClick={()=>setModels(true)}><ArrowDownToLine size={20}/>准备离线模型<ArrowRight size={17}/></button>}
     </div>
     <div className="hero-footnote"><CloudOff size={14}/>无需云端 OCR<span>·</span>无需账号<span>·</span>照片留在本机</div>
    </div>
@@ -244,16 +250,18 @@ function App(){
   <p className="eyebrow">YOUR READING SHELF</p>
   <h1>我的阅读</h1>
   <p className="muted">手动保存在本机的书页，随时打开继续阅读。</p>
-  <button className="primary" onClick={()=>upload.current?.click()}><Plus size={18}/>导入新照片</button>
+  {modelReady
+   ?<button className="primary" onClick={()=>upload.current?.click()}><Plus size={18}/>导入新照片</button>
+   :<button className="primary" onClick={()=>setModels(true)}><ArrowDownToLine size={18}/>准备离线模型</button>}
  </div>}
  {error&&<div role="alert" className="error global-error">{error}<button aria-label="关闭提示" onClick={()=>setError('')}><X size={17}/></button></div>}
  <section className="recent-section">
   <div className="section-heading"><h2>{screen==='history'?'阅读书架':'最近阅读'}<span>{recent.length.toString().padStart(2,'0')}</span></h2>{screen==='home'&&<button onClick={()=>{refresh();setScreen('history');}}>全部记录<ChevronRight size={16}/></button>}</div>
-  {recent.length?<div className="reading-grid">{recent.map(r=><ReadingCard key={r.id} reading={r} onOpen={()=>openReading(r)} onDelete={async()=>{try{await deleteReading(r.id);refresh();notify('已删除这条本地记录');}catch{notify('删除失败，请重试');}}}/>)}</div>:<div className="empty-records"><BookOpen size={27} strokeWidth={1.3}/><div><strong>还没有保存的阅读记录</strong><p>拍完识别后，点击右上角“保存”即可留在这里。</p></div><button aria-label="导入第一张照片" onClick={()=>upload.current?.click()}><Plus size={21}/></button></div>}
+  {recent.length?<div className="reading-grid">{recent.map(r=><ReadingCard key={r.id} reading={r} onOpen={()=>openReading(r)} onDelete={async()=>{try{await deleteReading(r.id);refresh();notify('已删除这条本地记录');}catch{notify('删除失败，请重试');}}}/>)}</div>:modelReady?<div className="empty-records"><BookOpen size={27} strokeWidth={1.3}/><div><strong>还没有保存的阅读记录</strong><p>拍完识别后，点击右上角“保存”即可留在这里。</p></div><button aria-label="导入第一张照片" onClick={()=>upload.current?.click()}><Plus size={21}/></button></div>:<div className="empty-records"><BookOpen size={27} strokeWidth={1.3}/><div><strong>请先准备离线模型</strong><p>下载完成后即可拍照或从相册导入。</p></div><button aria-label="准备离线模型" onClick={()=>setModels(true)}><ArrowDownToLine size={19}/></button></div>}
  </section>
  <footer className="page-footer"><span>保留原文的温度，让文字更容易亲近。</span><button onClick={()=>setModels(true)}><span className={modelReady?'status-dot ready':'status-dot'}/>{modelReady?'离线模型已缓存':'准备离线阅读'}<ArrowRight size={13}/></button></footer>
  </>}
- {screen==='processing'&&<section className="processing"><div className={error?'processing-symbol failed':'processing-symbol'}>{error?<BookOpen size={40}/>:<LoaderCircle className="spin" size={40}/>}</div><p className="eyebrow">A MOMENT FOR YOUR WORDS</p><h1>{error?'换个方式，再读一次':'正在自动处理与识别'}</h1><p aria-live="polite" role="status">{step}</p>{!error&&<progress max="1" value={progress}/>}<ol className="steps">{['矫正与增强','识别原始繁体','匹配原位简体'].map((s,i)=><li key={s} className={progress>=[.28,.75,.94][i]?'complete':''}><span>{progress>=[.28,.75,.94][i]?<Check size={13}/>:i+1}</span>{s}</li>)}</ol>{error&&<p role="alert" className="error">{error}</p>}<div className="row-actions">{error&&prepared&&<button className="primary" onClick={()=>runPipeline(prepared,pendingOptions)}>重新尝试</button>}<button className="secondary" onClick={cancel}>返回首页</button></div><small><ShieldCheck size={14}/>照片与识别文字都不会上传</small></section>}
+ {screen==='processing'&&<section className="processing"><div className={error?'processing-symbol failed':'processing-symbol'}>{error?<BookOpen size={40}/>:<LoaderCircle className="spin" size={40}/>}</div><p className="eyebrow">A MOMENT FOR YOUR WORDS</p><h1>{error?'换个方式，再读一次':'正在自动处理与识别'}</h1><p aria-live="polite" role="status">{step}</p>{!error&&<progress max="1" value={progress}/>}<ol className="steps">{['矫正与增强','识别原始繁体','匹配原位简体'].map((s,i)=>{const done=progress>=[.34,.78,.96][i];const active=!done&&(i===0||(i===1&&progress>=.34)||(i===2&&progress>=.78));return <li key={s} className={done?'complete':active?'active':''}><span>{done?<Check size={13}/>:i+1}</span>{s}</li>;})}</ol>{error&&<p role="alert" className="error">{error}</p>}<div className="row-actions">{error&&prepared&&<button className="primary" onClick={()=>runPipeline(prepared,pendingOptions)}>重新尝试</button>}<button className="secondary" onClick={cancel}>返回首页</button></div><small><ShieldCheck size={14}/>照片与识别文字都不会上传</small></section>}
  {isReader&&<Reader reading={reading} saved={saved} onToggleShow={()=>setReading({...reading,showAnnotations:!reading.showAnnotations})} onViewChange={view=>setReading({...reading,view})} onBack={goHome} onSave={()=>save()} onReprocess={opts=>{const orig:PreparedImage={blob:reading.originalImage??reading.image,width:reading.originalWidth??reading.width,height:reading.originalHeight??reading.height,name:reading.name};void runPipeline(orig,opts);}} notify={notify}/>}
  </main>
  {camera&&<Camera onCapture={importFile} onClose={()=>setCamera(false)} onFallback={()=>{setCamera(false);capture.current?.click();}}/>}
