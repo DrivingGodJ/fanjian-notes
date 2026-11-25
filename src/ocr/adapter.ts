@@ -34,8 +34,8 @@ export async function recognize(image:PreparedImage,signal:AbortSignal,status:(l
     if(!instance){status('初始化本地识别引擎（首次可能需要较长时间）',.4);const {PaddleOCR}=await import('@paddleocr/paddleocr-js');signal.throwIfAborted();instance=await PaddleOCR.create(options);}
     await abortable(instance.initialize(),signal);
     status('识别图片中的繁体文字',.7);
-    const canvas=await resizedCanvas(image.blob,1600,2200000);signal.throwIfAborted();
-    const [result]=await abortable(instance.predict(canvas,{textDetLimitSideLen:960,textDetLimitType:'max',textRecScoreThresh:.35}),signal);
+    const canvas=await resizedCanvas(image.blob,2000,3200000);signal.throwIfAborted();
+    const [result]=await abortable(instance.predict(canvas,{textDetLimitSideLen:1280,textDetLimitType:'max',textDetThresh:.25,textDetBoxThresh:.45,textDetUnclipRatio:1.6,textRecScoreThresh:.25}),signal);
     canvas.width=1;canvas.height=1;
     if(!result)throw new Error('没有返回识别结果，请重试。');
     status('整理识别结果',.98);return normalizeResult(result,image);

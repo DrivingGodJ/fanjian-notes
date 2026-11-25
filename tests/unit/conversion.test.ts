@@ -19,4 +19,13 @@ describe('whole-line contextual conversion and sequence alignment',()=>{
  });
  it('does not annotate identical lines',()=>expect(alignConversion('你好，世界！abc123').changes).toEqual([]));
  it('bounds long-input sequence alignment',()=>expect(alignConversion('繁'.repeat(501),'简'.repeat(501)).changes[0].kind).toBe('phrase'));
+ it('localizes length-changing phrases via unique anchors so surrounding Traditional characters still align 1-to-1',()=>{
+  const res=alignConversion('這台電腦的記憶體很美麗');
+  const charChanges=res.changes.filter(c=>c.kind==='character').map(c=>[c.original,c.simplified]);
+  expect(charChanges).toContainEqual(['這','这']);
+  expect(charChanges).toContainEqual(['電','电']);
+  expect(charChanges).toContainEqual(['腦','脑']);
+  expect(charChanges).toContainEqual(['麗','丽']);
+  expect(res.changes.some(c=>c.kind==='phrase'&&c.original==='記憶體'&&c.simplified==='内存')).toBe(true);
+ });
 });

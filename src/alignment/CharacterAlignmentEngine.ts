@@ -20,7 +20,7 @@ export class CharacterAlignmentEngine {
    const center=evidence?quadPoint(evidence.polygon,.5,.5):vertical?quadPoint(line.polygon,cross,t):quadPoint(line.polygon,t,cross);
    const edge=evidence?(vertical?quadPoint(evidence.polygon,1,.5):quadPoint(evidence.polygon,.5,0)):vertical?quadPoint(line.polygon,slot?.crossEnd??1,t):quadPoint(line.polygon,t,slot?.crossStart??0);
    const dx=edge.x-center.x,dy=edge.y-center.y,len=Math.hypot(dx,dy)||1,size=vertical?charWidth:charHeight;
-   const needsReview=change.kind==='phrase'||(!!sample||!!line.evidenceStatus)&&confidence<(line.evidenceStatus?.55:.35);
+   const needsReview=change.kind==='phrase'||(!!sample||!!line.evidenceStatus)&&confidence<(line.evidenceStatus?.30:.35);
    return {id:`${line.id}:${change.sourceStart}:${index}`,lineId:line.id,sourceIndex:change.sourceStart,original:change.original,simplified:change.simplified,
     center,sourcePolygon:evidence?.polygon,position:{x:edge.x+dx/len*size*.32,y:edge.y+dy/len*size*.32},direction:line.direction,charWidth,charHeight,
     angle:vertical?0:Math.atan2(line.polygon[1].y-line.polygon[0].y,line.polygon[1].x-line.polygon[0].x)*180/Math.PI,

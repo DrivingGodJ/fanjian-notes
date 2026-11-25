@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 280" width="100%" role="img" aria-label="繁简旁注本地处理流程：导入校准、展平增强、本地识别、原位覆盖">
+  <defs>
+    <linearGradient id="wbg-zh" x1="0" y1="0" x2="1200" y2="280" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#111a15"/>
+      <stop offset="100%" stop-color="#17241d"/>
+    </linearGradient>
+    <linearGradient id="beam1" x1="276" y1="146" x2="338" y2="146" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#7fa46e"/>
+      <stop offset="100%" stop-color="#aec79a"/>
+    </linearGradient>
+    <linearGradient id="beam2" x1="568" y1="146" x2="630" y2="146" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#aec79a"/>
+      <stop offset="100%" stop-color="#d2b48c"/>
+    </linearGradient>
+    <linearGradient id="beam3" x1="860" y1="146" x2="922" y2="146" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#d2b48c"/>
+      <stop offset="100%" stop-color="#cf7661"/>
+    </linearGradient>
+    <style>
+      .serif { font-family: "Songti SC", "STSong", "Noto Serif CJK SC", Georgia, serif; }
+      .sans { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+      .mono { font-family: ui-monospace, SFMono-Regular, "Cascadia Code", Consolas, monospace; }
+      .flow { stroke-dasharray: 6 6; animation: dash 1.8s linear infinite; }
+      .node-pulse { transform-box: fill-box; transform-origin: center; animation: pulse 3.2s ease-in-out infinite; }
+      @keyframes dash { to { stroke-dashoffset: -24; } }
+      @keyframes pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+    </style>
+  </defs>
+
+  <rect x="1" y="1" width="1198" height="278" rx="18" fill="url(#wbg-zh)" stroke="rgba(174,199,154,0.22)" stroke-width="1.5"/>
+  <text x="44" y="42" fill="#95a88d" font-size="12" letter-spacing="2" class="mono">ON-DEVICE PIPELINE · ZERO SERVER UPLOAD</text>
+  <text x="1156" y="42" text-anchor="end" fill="#7c9075" font-size="12" class="sans">全程 WebAssembly + Web Worker 本地计算</text>
+
+  <!-- Stage 1 -->
+  <g transform="translate(44, 66)">
+    <rect x="0" y="0" width="232" height="174" rx="12" fill="#18251d" stroke="rgba(174,199,154,0.26)" stroke-width="1"/>
+    <text x="20" y="34" fill="#89a87a" font-size="12" letter-spacing="1.5" class="mono">01 · INPUT</text>
+    <text x="20" y="72" fill="#eff4ea" font-size="22" class="serif">拍照或导入</text>
+    <text x="20" y="106" fill="#a2b39b" font-size="13" class="sans">系统相机原生直拍</text>
+    <text x="20" y="128" fill="#a2b39b" font-size="13" class="sans">解析 EXIF 旋转校正</text>
+    <text x="20" y="156" fill="#6f826a" font-size="11.5" class="mono">≤ 2600px / 6 MP</text>
+  </g>
+
+  <line x1="276" y1="153" x2="338" y2="153" stroke="url(#beam1)" stroke-width="2.2" class="flow"/>
+  <circle cx="307" cy="153" r="4" fill="#aec79a" class="node-pulse"/>
+
+  <!-- Stage 2 -->
+  <g transform="translate(338, 66)">
+    <rect x="0" y="0" width="232" height="174" rx="12" fill="#18251d" stroke="rgba(174,199,154,0.26)" stroke-width="1"/>
+    <text x="20" y="34" fill="#aec79a" font-size="12" letter-spacing="1.5" class="mono">02 · PREPROCESS</text>
+    <text x="20" y="72" fill="#eff4ea" font-size="22" class="serif">展平与增强</text>
+    <text x="20" y="106" fill="#a2b39b" font-size="13" class="sans">文字朝向安全转正</text>
+    <text x="20" y="128" fill="#a2b39b" font-size="13" class="sans">UVDoc 3D 曲面拉平</text>
+    <text x="20" y="156" fill="#6f826a" font-size="11.5" class="mono">局部阴影均衡 + USM 锐化</text>
+  </g>
+
+  <line x1="570" y1="153" x2="632" y2="153" stroke="url(#beam2)" stroke-width="2.2" class="flow"/>
+  <circle cx="601" cy="153" r="4" fill="#d2b48c" class="node-pulse"/>
+
+  <!-- Stage 3 -->
+  <g transform="translate(632, 66)">
+    <rect x="0" y="0" width="232" height="174" rx="12" fill="#18251d" stroke="rgba(174,199,154,0.26)" stroke-width="1"/>
+    <text x="20" y="34" fill="#d2b48c" font-size="12" letter-spacing="1.5" class="mono">03 · LOCAL OCR</text>
+    <text x="20" y="72" fill="#eff4ea" font-size="22" class="serif">繁体字逐字核对</text>
+    <text x="20" y="106" fill="#a2b39b" font-size="13" class="sans">PP-OCRv5 Mobile 推理</text>
+    <text x="20" y="128" fill="#a2b39b" font-size="13" class="sans">CTC 时序与简繁语义互校</text>
+    <text x="20" y="156" fill="#6f826a" font-size="11.5" class="mono">像素投影谷值对齐</text>
+  </g>
+
+  <line x1="864" y1="153" x2="926" y2="153" stroke="url(#beam3)" stroke-width="2.2" class="flow"/>
+  <circle cx="895" cy="153" r="4" fill="#cf7661" class="node-pulse"/>
+
+  <!-- Stage 4 -->
+  <g transform="translate(926, 66)">
+    <rect x="0" y="0" width="230" height="174" rx="12" fill="#1b241d" stroke="rgba(207,118,97,0.38)" stroke-width="1"/>
+    <text x="20" y="34" fill="#cf7661" font-size="12" letter-spacing="1.5" class="mono">04 · OVERLAY</text>
+    <text x="20" y="72" fill="#eff4ea" font-size="22" class="serif">同色原位覆盖</text>
+    <text x="20" y="106" fill="#c7b8b3" font-size="13" class="sans">OpenCC twp → cn 词组</text>
+    <text x="20" y="128" fill="#c7b8b3" font-size="13" class="sans">采样原字周边纸色与墨色</text>
+    <text x="20" y="156" fill="#a5796e" font-size="11.5" class="mono">SVG 阅读 / 导出 PNG·JPG</text>
+  </g>
+</svg>

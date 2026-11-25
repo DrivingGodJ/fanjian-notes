@@ -41,7 +41,7 @@ export function projectCharacters(line:OcrLine,chars:string[],sample:PixelSample
   }
   previous=next;
  }
- const loss=previous[last+1]/count;if(!Number.isFinite(loss)||loss>.85)return;
+ const loss=previous[last+1]/count;if(!Number.isFinite(loss)||loss>1.35)return;
  const edges=new Int16Array(count+1);edges[count]=last+1;for(let i=count;i>0;i--){edges[i-1]=back[i][edges[i]];if(edges[i-1]<0)return;}
  const result:CharacterSlot[]=[];
  for(let i=0;i<count;i++){

@@ -2,7 +2,7 @@ import type {OcrLine} from '../types';import {resizedCanvas} from '../image-proc
 export async function locateRecognizedCharacters(image:{blob:Blob;width:number;height:number},lines:OcrLine[],signal?:AbortSignal,status:(s:string)=>void=()=>{}):Promise<OcrLine[]>{
  if(!lines.length)return [];lines=lines.map(l=>({...l,text:l.text.normalize('NFC')}));signal?.throwIfAborted();cancelOcr();
  await downloadModels((_,s)=>status(s),signal);
- const [archive,config,canvas]=await Promise.all([fetch(appPath('ocr/rec.tar'),{signal}).then(r=>{if(!r.ok)throw Error('无法读取逐字识别模型');return r.arrayBuffer();}),fetch(appPath('ocr/rec-params.json'),{signal}).then(r=>{if(!r.ok)throw Error('无法读取逐字识别字典');return r.json();}),resizedCanvas(image.blob,1800,2800000)]);
+ const [archive,config,canvas]=await Promise.all([fetch(appPath('ocr/rec.tar'),{signal}).then(r=>{if(!r.ok)throw Error('无法读取逐字识别模型');return r.arrayBuffer();}),fetch(appPath('ocr/rec-params.json'),{signal}).then(r=>{if(!r.ok)throw Error('无法读取逐字识别字典');return r.json();}),resizedCanvas(image.blob,2000,3200000)]);
  signal?.throwIfAborted();const pixels=canvas.getContext('2d',{willReadFrequently:true})!.getImageData(0,0,canvas.width,canvas.height),size={width:canvas.width,height:canvas.height};canvas.width=1;
  return new Promise((resolve,reject)=>{
   const worker=new Worker(new URL('./recognition.worker.ts',import.meta.url),{type:'module'});
