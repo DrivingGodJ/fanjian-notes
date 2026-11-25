@@ -24,6 +24,8 @@ test('first-time onboarding prompt appears once, demo is removed, and home has n
  await page.reload();
  await expect(page.getByRole('dialog',{name:'首次使用模型安装引导',exact:true})).toHaveCount(0);
  await expect(page.getByText('体验示例')).toHaveCount(0);
+ await expect(page.locator('.hero-visual')).toHaveCount(0);
+ await expect(page.locator('.benefits')).toHaveCount(0);
  await page.evaluate(()=>document.fonts.load('400 16px "Source Han Serif"','繁简旁注'));
  await expect(page.locator('.mobile-header').getByRole('button',{name:'检查更新',exact:true})).toBeVisible();
  await expect(page.locator('.topbar-update')).toBeHidden();

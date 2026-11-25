@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {ArrowDownToLine,ArrowLeft,ArrowRight,BookOpen,Camera as CameraIcon,Check,ChevronRight,CloudOff,HardDrive,ImagePlus,Leaf,LoaderCircle,Plus,RefreshCw,ShieldCheck,Sparkles,Trash2,X} from 'lucide-react';
+import {ArrowDownToLine,ArrowLeft,ArrowRight,BookOpen,Camera as CameraIcon,Check,ChevronRight,HardDrive,ImagePlus,LoaderCircle,Plus,RefreshCw,ShieldCheck,Trash2,X} from 'lucide-react';
 import {registerSW} from 'virtual:pwa-register';
 import type {PreparedImage,Reading} from './types';
 import {DEFAULT_STYLE} from './types';
@@ -193,17 +193,17 @@ function App(){
  <input ref={upload} data-testid="file-upload" className="sr-only" type="file" accept="image/*" onChange={e=>importFile(e.target.files?.[0])}/><input ref={capture} className="sr-only" type="file" accept="image/*" capture="environment" onChange={e=>importFile(e.target.files?.[0])}/>
  {!isReader&&<>
   <aside className="sidebar">
-   <button className="brand" onClick={goHome}><span className="brand-mark"><BookOpen size={25}/><i/></span><span>繁简旁注<small>FANJIAN NOTES</small></span></button>
+   <button className="brand" onClick={goHome}><span className="brand-mark" aria-hidden="true">閱</span><span>繁简旁注</span></button>
    <nav>
     <button className={screen==='home'?'nav-item selected':'nav-item'} onClick={goHome}><BookOpen size={19}/>开始阅读<span>01</span></button>
     <button className={screen==='history'?'nav-item selected':'nav-item'} onClick={()=>{refresh();setScreen('history');}}><HardDrive size={19}/>我的阅读<span>{recent.length.toString().padStart(2,'0')}</span></button>
     <button className="nav-item" onClick={()=>setModels(true)}><ArrowDownToLine size={19}/>离线模型<small className={modelReady?'status-dot ready':'status-dot'}/></button>
    </nav>
-   <div className="sidebar-bottom"><span className="private-icon"><ShieldCheck size={20}/></span><strong>只属于你的阅读</strong><p>照片不离开设备<br/>无需账号，安心使用</p><div className="sidebar-version"><span>本地优先 · PWA</span><span>v0.1</span></div></div>
+   <div className="sidebar-bottom"><div className="sidebar-version"><span>本地离线 · 不离设备</span><span>v0.1</span></div></div>
   </aside>
   <header className="mobile-header">
    {screen==='history'?<button className="icon-button mobile-back" aria-label="返回首页" onClick={goHome}><ArrowLeft size={21}/></button>:null}
-   <button className="brand" onClick={goHome}><span className="brand-mark"><BookOpen size={23}/><i/></span><span>{screen==='history'?'我的阅读':'繁简旁注'}</span></button>
+   <button className="brand" onClick={goHome}><span className="brand-mark" aria-hidden="true">閱</span><span>{screen==='history'?'我的阅读':'繁简旁注'}</span></button>
    <div className="mobile-header-actions">
     <button className={update?'icon-button update-ready':'icon-button'} aria-label={update?'更新到最新版本':'检查更新'} disabled={checkingUpdate} onClick={checkForUpdate}><RefreshCw size={19} className={checkingUpdate?'spin':''}/></button>
     <button className="icon-button" aria-label="离线模型管理" onClick={()=>setModels(true)}><HardDrive size={20}/></button>
@@ -211,43 +211,31 @@ function App(){
   </header>
  </>}
  <main className={isReader?'reader-main':'main-content'}>
- {!isReader&&<div className="topbar"><span><i className={offline?'status-dot':'status-dot ready'}/>{offline?'离线阅读模式':'每一页，都值得读懂'}</span><div className="topbar-actions"><button type="button" className={update?'topbar-update ready':'topbar-update'} disabled={checkingUpdate} onClick={checkForUpdate}><RefreshCw size={14} className={checkingUpdate?'spin':''}/><span>{checkingUpdate?'检查中…':update?'发现新版本 · 点击更新':'检查更新'}</span></button><button onClick={()=>setModels(true)}><ShieldCheck size={15}/><span>本地处理，隐私安心</span></button></div></div>}
+ {!isReader&&<div className="topbar"><span><i className={offline?'status-dot':'status-dot ready'}/>{offline?'离线阅读':'本地就绪'}</span><div className="topbar-actions"><button type="button" className={update?'topbar-update ready':'topbar-update'} disabled={checkingUpdate} onClick={checkForUpdate}><RefreshCw size={14} className={checkingUpdate?'spin':''}/><span>{checkingUpdate?'检查中…':update?'发现新版本 · 点击更新':'检查更新'}</span></button></div></div>}
  {(screen==='home'||screen==='history')&&<>
  {screen==='home'?<>
-  <div className="page-kicker"><span/>让阅读自然发生 <span className="kicker-en">A LITTLE HELP, A BETTER READ</span></div>
   <section className="hero">
    <div className="hero-copy">
-    <h1>看见原文。<br/>读懂<span className="serif-accent">每一字。</span><Leaf className="hero-leaf" size={34} strokeWidth={1.4}/></h1>
-    <p>拍下一页繁体，原位替换为同色简体。<br/>自动矫正与清晰增强，让纸页阅读毫无负担。</p>
+    <div className="page-kicker"><span/>繁體轉簡 · 本地閱讀</div>
+    <h1>展卷见繁，<br/>落目成简。</h1>
+    <p>拍下繁体书页，自动展平并原位覆以同色简体。</p>
     <div className="hero-actions">
      {modelReady?<>
-      <button className="primary" disabled={importing} onClick={()=>{if(isMobileDevice())capture.current?.click();else setCamera(true);}}><CameraIcon size={20}/>拍照识别<ArrowRight size={17}/></button>
-      <button className="secondary" disabled={importing} onClick={()=>upload.current?.click()}><ImagePlus size={19}/>{importing?'正在读取…':'从相册导入'}</button>
-     </>:<button className="primary" onClick={()=>setModels(true)}><ArrowDownToLine size={20}/>准备离线模型<ArrowRight size={17}/></button>}
+      <button className="primary" disabled={importing} onClick={()=>{if(isMobileDevice())capture.current?.click();else setCamera(true);}}><CameraIcon size={18}/>拍照识别</button>
+      <button className="secondary" disabled={importing} onClick={()=>upload.current?.click()}><ImagePlus size={18}/>{importing?'正在读取…':'从相册导入'}</button>
+     </>:<button className="primary" onClick={()=>setModels(true)}><ArrowDownToLine size={18}/>准备离线模型</button>}
     </div>
-    <div className="hero-footnote"><CloudOff size={14}/>无需云端 OCR<span>·</span>无需账号<span>·</span>照片留在本机</div>
+    <div className="hero-footnote">本地离线运行 · 照片不离设备</div>
    </div>
-   <div className="hero-visual">
-    <div className="example-tag"><span className="status-dot ready"/>同色同位，简体直接融入原页</div>
-    <div className="paper-stack back"/>
-    <div className="paper-stack front">
-     <div className="paper-heading">READ SLOWLY, SEE MORE</div>
-     <p className="paper-subtitle">生活里的小美好</p>
-     <div className="paper-rule"/>
-     <div className="paper-text"><p>这是一个美丽的世界。</p><p>一页书，一杯茶，</p><p>把时光，留给阅读。</p></div>
-     <div className="paper-footer"><span>慢 读 生 活</span><span>— 01 —</span></div>
-    </div>
-    <div className="visual-note"><span className="note-line"/><small>底色与墨色自适应<br/><b>直接看，不打断视线</b></small></div>
+   <div className="hero-colophon" aria-hidden="true">
+    <span className="colophon-trad">繁</span>
+    <i className="colophon-rule"/>
+    <span className="colophon-simp">简</span>
+    <span className="colophon-seal">紙頁</span>
    </div>
-  </section>
-  <section className="benefits">
-   <div><span><ScanIcon/></span><p><strong>拍下，自动出图</strong><small>拍照或选图后自动矫正、锐化并识别</small></p></div>
-   <div><span><Sparkles size={21}/></span><p><strong>原位覆盖，自然融合</strong><small>自动匹配纸面底色与墨色，字号清晰</small></p></div>
-   <div><span><ShieldCheck size={21}/></span><p><strong>按需保存，留在本机</strong><small>不默认占用空间，想留再保存</small></p></div>
   </section>
  </>:<div className="history-heading">
   <button type="button" className="back-home" onClick={goHome}><ArrowLeft size={16}/>返回首页</button>
-  <p className="eyebrow">YOUR READING SHELF</p>
   <h1>我的阅读</h1>
   <p className="muted">手动保存在本机的书页，随时打开继续阅读。</p>
   {modelReady
@@ -257,11 +245,11 @@ function App(){
  {error&&<div role="alert" className="error global-error">{error}<button aria-label="关闭提示" onClick={()=>setError('')}><X size={17}/></button></div>}
  <section className="recent-section">
   <div className="section-heading"><h2>{screen==='history'?'阅读书架':'最近阅读'}<span>{recent.length.toString().padStart(2,'0')}</span></h2>{screen==='home'&&<button onClick={()=>{refresh();setScreen('history');}}>全部记录<ChevronRight size={16}/></button>}</div>
-  {recent.length?<div className="reading-grid">{recent.map(r=><ReadingCard key={r.id} reading={r} onOpen={()=>openReading(r)} onDelete={async()=>{try{await deleteReading(r.id);refresh();notify('已删除这条本地记录');}catch{notify('删除失败，请重试');}}}/>)}</div>:modelReady?<div className="empty-records"><BookOpen size={27} strokeWidth={1.3}/><div><strong>还没有保存的阅读记录</strong><p>拍完识别后，点击右上角“保存”即可留在这里。</p></div><button aria-label="导入第一张照片" onClick={()=>upload.current?.click()}><Plus size={21}/></button></div>:<div className="empty-records"><BookOpen size={27} strokeWidth={1.3}/><div><strong>请先准备离线模型</strong><p>下载完成后即可拍照或从相册导入。</p></div><button aria-label="准备离线模型" onClick={()=>setModels(true)}><ArrowDownToLine size={19}/></button></div>}
+  {recent.length?<div className="reading-grid">{recent.map(r=><ReadingCard key={r.id} reading={r} onOpen={()=>openReading(r)} onDelete={async()=>{try{await deleteReading(r.id);refresh();notify('已删除这条本地记录');}catch{notify('删除失败，请重试');}}}/>)}</div>:modelReady?<div className="empty-records"><BookOpen size={24} strokeWidth={1.3}/><div><strong>还没有保存的阅读记录</strong><p>拍完识别后，点击右上角“保存”即可留在这里。</p></div><button aria-label="导入第一张照片" onClick={()=>upload.current?.click()}><Plus size={19}/></button></div>:<div className="empty-records"><BookOpen size={24} strokeWidth={1.3}/><div><strong>请先准备离线模型</strong><p>下载完成后即可拍照或从相册导入。</p></div><button aria-label="准备离线模型" onClick={()=>setModels(true)}><ArrowDownToLine size={17}/></button></div>}
  </section>
- <footer className="page-footer"><span>保留原文的温度，让文字更容易亲近。</span><button onClick={()=>setModels(true)}><span className={modelReady?'status-dot ready':'status-dot'}/>{modelReady?'离线模型已缓存':'准备离线阅读'}<ArrowRight size={13}/></button></footer>
+ <footer className="page-footer"><span>一页书，安然读。</span><button onClick={()=>setModels(true)}><span className={modelReady?'status-dot ready':'status-dot'}/>{modelReady?'离线模型已就绪':'准备离线模型'}<ArrowRight size={13}/></button></footer>
  </>}
- {screen==='processing'&&<section className="processing"><div className={error?'processing-symbol failed':'processing-symbol'}>{error?<BookOpen size={40}/>:<LoaderCircle className="spin" size={40}/>}</div><p className="eyebrow">A MOMENT FOR YOUR WORDS</p><h1>{error?'换个方式，再读一次':'正在自动处理与识别'}</h1><p aria-live="polite" role="status">{step}</p>{!error&&<progress max="1" value={progress}/>}<ol className="steps">{['矫正与增强','识别原始繁体','匹配原位简体'].map((s,i)=>{const done=progress>=[.34,.78,.96][i];const active=!done&&(i===0||(i===1&&progress>=.34)||(i===2&&progress>=.78));return <li key={s} className={done?'complete':active?'active':''}><span>{done?<Check size={13}/>:i+1}</span>{s}</li>;})}</ol>{error&&<p role="alert" className="error">{error}</p>}<div className="row-actions">{error&&prepared&&<button className="primary" onClick={()=>runPipeline(prepared,pendingOptions)}>重新尝试</button>}<button className="secondary" onClick={cancel}>返回首页</button></div><small><ShieldCheck size={14}/>照片与识别文字都不会上传</small></section>}
+ {screen==='processing'&&<section className="processing"><div className={error?'processing-symbol failed':'processing-symbol'}>{error?<BookOpen size={36}/>:<LoaderCircle className="spin" size={34} strokeWidth={1.5}/>}</div><h1>{error?'换个方式，再读一次':'正在自动处理与识别'}</h1><p aria-live="polite" role="status">{step}</p>{!error&&<progress max="1" value={progress}/>}<ol className="steps">{['矫正与增强','识别原始繁体','匹配原位简体'].map((s,i)=>{const done=progress>=[.34,.78,.96][i];const active=!done&&(i===0||(i===1&&progress>=.34)||(i===2&&progress>=.78));return <li key={s} className={done?'complete':active?'active':''}><span>{done?<Check size={13}/>:i+1}</span>{s}</li>;})}</ol>{error&&<p role="alert" className="error">{error}</p>}<div className="row-actions">{error&&prepared&&<button className="primary" onClick={()=>runPipeline(prepared,pendingOptions)}>重新尝试</button>}<button className="secondary" onClick={cancel}>返回首页</button></div><small><ShieldCheck size={14}/>照片与识别文字都不会上传</small></section>}
  {isReader&&<Reader reading={reading} saved={saved} onToggleShow={()=>setReading({...reading,showAnnotations:!reading.showAnnotations})} onViewChange={view=>setReading({...reading,view})} onBack={goHome} onSave={()=>save()} onReprocess={opts=>{const orig:PreparedImage={blob:reading.originalImage??reading.image,width:reading.originalWidth??reading.width,height:reading.originalHeight??reading.height,name:reading.name};void runPipeline(orig,opts);}} notify={notify}/>}
  </main>
  {camera&&<Camera onCapture={importFile} onClose={()=>setCamera(false)} onFallback={()=>{setCamera(false);capture.current?.click();}}/>}
@@ -272,5 +260,4 @@ function App(){
  </div>;
 }
 function ReadingCard({reading:r,onOpen,onDelete}:{reading:Reading;onOpen:()=>void;onDelete:()=>void}){const url=useBlobUrl(r.image);return <article className="reading-card"><button className="reading-thumbnail" onClick={onOpen}><img src={url} alt={r.name} loading="lazy"/><span>{`${r.annotations.filter(a=>a.visible&&!a.deleted).length} 处替换`}</span></button><div><button onClick={onOpen}><h3>{r.name}</h3><p>{new Date(r.updatedAt).toLocaleDateString('zh-CN')} · {r.lines.length} 行文字</p></button><button aria-label={`删除 ${r.name}`} className="icon-button" onClick={onDelete}><Trash2 size={16}/></button></div></article>;}
-function ScanIcon(){return <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5M7 9h10M9 6v12M15 6v12M7 15h10"/></svg>;}
 export default App;
