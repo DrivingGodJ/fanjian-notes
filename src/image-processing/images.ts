@@ -19,10 +19,26 @@ export async function prepareImage(file:File):Promise<PreparedImage>{
 }
 export interface Crop {left:number;top:number;right:number;bottom:number}
 export function rotatedSize(width:number,height:number,degrees:number){const r=degrees*Math.PI/180,c=Math.abs(Math.cos(r)),s=Math.abs(Math.sin(r));return {width:Math.round(width*c+height*s),height:Math.round(width*s+height*c)};}
+export function sampleBorderColor(source:HTMLImageElement):string{
+  try{
+    const size=32,canvas=document.createElement('canvas');canvas.width=size;canvas.height=size;
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});if(!ctx)return '#fffdf5';
+    ctx.drawImage(source,0,0,size,size);
+    const {data}=ctx.getImageData(0,0,size,size);
+    const rs:number[]=[],gs:number[]=[],bs:number[]=[];
+    for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+      if(x>0&&x<size-1&&y>0&&y<size-1)continue;
+      const idx=(y*size+x)*4;rs.push(data[idx]);gs.push(data[idx+1]);bs.push(data[idx+2]);
+    }
+    canvas.width=1;
+    const med=(a:number[])=>a.sort((u,v)=>u-v)[Math.floor(a.length/2)]??250;
+    return `rgb(${med(rs)},${med(gs)},${med(bs)})`;
+  }catch{return '#fffdf5';}
+}
 export async function transformImage(image:PreparedImage,turns:number,crop:Crop,angle=0):Promise<PreparedImage>{
   const source=await loadImage(image.blob),rotated=document.createElement('canvas'),degrees=turns*90+angle;
   const size=rotatedSize(image.width,image.height,degrees);rotated.width=size.width;rotated.height=size.height;
-  const ctx=rotated.getContext('2d')!;ctx.fillStyle='#fffdf5';ctx.fillRect(0,0,rotated.width,rotated.height);ctx.translate(rotated.width/2,rotated.height/2);ctx.rotate(degrees*Math.PI/180);ctx.drawImage(source,-image.width/2,-image.height/2);
+  const ctx=rotated.getContext('2d')!;ctx.fillStyle=sampleBorderColor(source);ctx.fillRect(0,0,rotated.width,rotated.height);ctx.translate(rotated.width/2,rotated.height/2);ctx.rotate(degrees*Math.PI/180);ctx.drawImage(source,-image.width/2,-image.height/2);
   const out=document.createElement('canvas');const x=Math.round(crop.left*rotated.width),y=Math.round(crop.top*rotated.height);
   const cw=Math.max(1,Math.round((crop.right-crop.left)*rotated.width)),ch=Math.max(1,Math.round((crop.bottom-crop.top)*rotated.height)),ratio=Math.min(1,2400/Math.max(cw,ch),Math.sqrt(5000000/(cw*ch)));
   out.width=Math.max(1,Math.round(cw*ratio));out.height=Math.max(1,Math.round(ch*ratio));

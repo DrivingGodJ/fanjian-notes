@@ -19,7 +19,7 @@ import {useBlobUrl} from './ui/hooks';
 type Screen='home'|'prepare'|'processing'|'reader'|'history';
 function App(){
  const [screen,setScreen]=useState<Screen>('home'),[camera,setCamera]=useState(false),[models,setModels]=useState(false),[prepared,setPrepared]=useState<PreparedImage>(),[reading,setReading]=useState<Reading>(),[aligning,setAligning]=useState(false);
- const latestReading=useRef(reading);latestReading.current=reading;
+ const latestReading=useRef(reading),lastSavedStamp=useRef('');latestReading.current=reading;
  const [recent,setRecent]=useState<Reading[]>([]),[toast,setToast]=useState(''),[error,setError]=useState(''),[step,setStep]=useState(''),[progress,setProgress]=useState(0),[importing,setImporting]=useState(false),[modelReady,setModelReady]=useState(false),[offline,setOffline]=useState(!navigator.onLine),[update,setUpdate]=useState<(()=>void)>();
  const upload=useRef<HTMLInputElement>(null),capture=useRef<HTMLInputElement>(null),controller=useRef<AbortController>(null),taskId=useRef(0);
  const notify=(message:string)=>setToast(message);
@@ -29,8 +29,18 @@ function App(){
    const online=()=>setOffline(!navigator.onLine);window.addEventListener('online',online);window.addEventListener('offline',online);return()=>{controller.current?.abort();window.removeEventListener('online',online);window.removeEventListener('offline',online);};
  },[]);
  useEffect(()=>{if(!toast)return;const id=setTimeout(()=>setToast(''),4500);return()=>clearTimeout(id);},[toast]);
+ useEffect(()=>{
+  if(screen!=='reader'||!reading||reading.demo||aligning)return;
+  const stamp=`${reading.id}:${reading.updatedAt}`;
+  if(lastSavedStamp.current===stamp)return;
+  const id=setTimeout(()=>{
+   lastSavedStamp.current=stamp;
+   void saveReading(reading).then(()=>refresh()).catch(()=>{});
+  },1200);
+  return()=>clearTimeout(id);
+ },[screen,reading?.id,reading?.updatedAt,reading?.demo,aligning]);
  const importFile=async(file?:File)=>{if(!file)return;setCamera(false);setImporting(true);setError('');try{setPrepared(await prepareImage(file));setScreen('prepare');}catch(e){setError((e as Error).message);}finally{setImporting(false);if(upload.current)upload.current.value='';if(capture.current)capture.current.value='';}};
- const save=async(r=reading)=>{if(!r)return;try{await saveReading({...r,updatedAt:Date.now()});notify('阅读记录已保存到本机');await refresh();}catch{notify('保存失败，可能空间不足。请先导出图片。');}};
+ const save=async(r=reading)=>{if(!r)return;try{const next={...r,updatedAt:Date.now()};lastSavedStamp.current=`${next.id}:${next.updatedAt}`;await saveReading(next);notify('阅读记录已保存到本机');await refresh();}catch{notify('保存失败，可能空间不足。请先导出图片。');}};
  const goHome=async()=>{taskId.current++;controller.current?.abort();setAligning(false);if(reading&&screen==='reader')await save(reading);setScreen('home');setError('');refresh();};
  const start=async(image:PreparedImage)=>{
   controller.current?.abort();setAligning(false);const id=++taskId.current;const abort=new AbortController();controller.current=abort;setPrepared(image);setReading(undefined);setScreen('processing');setError('');setProgress(0);
@@ -48,7 +58,7 @@ function App(){
   if(!r)return;controller.current?.abort();const id=++taskId.current,abort=new AbortController();controller.current=abort;setAligning(true);notify('正在按照片重新定位字符…');
   try{const updated=await improveReading(r,abort.signal),current=latestReading.current;if(id!==taskId.current||current?.id!==r.id)return;
    if(current.annotations!==r.annotations||current.lines!==r.lines){notify('内容已修改，可稍后再次优化定位');return;}
-   const merged={...updated,view:current.view,style:current.style,showAnnotations:current.showAnnotations};setReading(merged);await saveReading(merged);await refresh();notify('位置已重新计算；不可靠的旁注已收起待确认');
+   const merged={...updated,view:current.view,style:current.style,showAnnotations:current.showAnnotations};lastSavedStamp.current=`${merged.id}:${merged.updatedAt}`;setReading(merged);await saveReading(merged);await refresh();notify('位置已重新计算；不可靠的旁注已收起待确认');
   }catch(e){if((e as Error).name!=='AbortError')notify((e as Error).message);}finally{if(id===taskId.current)setAligning(false);}
  };
  const openReading=(r:Reading)=>{setReading(r);setScreen('reader');if(!r.demo&&(r.alignmentVersion??0)<ALIGNMENT_VERSION)void optimize(r);};
@@ -63,7 +73,7 @@ function App(){
  {(screen==='home'||screen==='history')&&<>
  {screen==='home'?<><div className="page-kicker"><span/>让阅读自然发生 <span className="kicker-en">A LITTLE HELP, A BETTER READ</span></div><section className="hero"><div className="hero-copy"><h1>看见原文。<br/>读懂<span className="serif-accent">每一字。</span><Leaf className="hero-leaf" size={34} strokeWidth={1.4}/></h1><p>拍下一页繁体，添上一层简体旁注。<br/>保留文字本来的样子，让阅读少一点距离。</p><div className="hero-actions"><button className="primary" disabled={importing} onClick={()=>setCamera(true)}><CameraIcon size={20}/>拍照识别<ArrowRight size={17}/></button><button className="secondary" disabled={importing} onClick={()=>upload.current?.click()}><ImagePlus size={19}/>{importing?'正在读取…':'从相册导入'}</button></div><div className="hero-footnote"><CloudOff size={14}/>无需云端 OCR<span>·</span>无需账号<span>·</span>照片留在本机</div></div><div className="hero-visual"><div className="example-tag"><span className="status-dot ready"/>简体旁注，让原文更好读</div><div className="paper-stack back"/><div className="paper-stack front"><div className="paper-heading">READ SLOWLY, SEE MORE</div><p className="paper-subtitle">生活裡的小美好</p><div className="paper-rule"/><div className="paper-text"><p><ruby>這<rt>这</rt></ruby>是一<ruby>個<rt>个</rt></ruby>美<ruby>麗<rt>丽</rt></ruby>的世界。</p><p>一<ruby>頁<rt>页</rt></ruby><ruby>書<rt>书</rt></ruby>，一杯茶，</p><p>把<ruby>時<rt>时</rt></ruby>光，留<ruby>給<rt>给</rt></ruby><ruby>閱<rt>阅</rt></ruby><ruby>讀<rt>读</rt></ruby>。</p></div><div className="paper-footer"><span>慢 读 生 活</span><span>— 01 —</span></div></div><div className="visual-note"><span className="note-line"/><small>原照片完整保留<br/><b>只给不同的字，加一点提示</b></small></div></div></section>
  <section className="benefits"><div><span><ScanIcon/></span><p><strong>拍下，就能读</strong><small>书页、路牌、菜单，一张照片即可</small></p></div><div><span><Sparkles size={21}/></span><p><strong>轻轻旁注，不改原文</strong><small>只标不同的字，随照片一起缩放</small></p></div><div><span><ShieldCheck size={21}/></span><p><strong>阅读，安心留在本机</strong><small>设备本地识别，缓存后支持离线</small></p></div></section>
- <section className="try-banner"><div className="try-icon">繁<span>简</span></div><div><h3>先翻开一页，感受旁注阅读</h3><p>不必上传照片，用示例体验缩放、纠错与导出。</p></div><button onClick={()=>demo()}>体验示例<ArrowRight size={16}/></button></section></>:<div className="history-heading"><p className="eyebrow">YOUR READING SHELF</p><h1>我的阅读</h1><p className="muted">留在设备里的照片，和你上次读到的地方。</p><button className="primary" onClick={()=>upload.current?.click()}><Plus size={18}/>导入新照片</button></div>}
+ <section className="try-banner"><div className="try-icon">繁<span>简</span></div><div><h3>先翻开一页，感受旁注阅读</h3><p>不必上传照片，用示例体验缩放、纠错与导出。</p></div><div className="try-actions"><button type="button" className="secondary small try-vertical" onClick={()=>demo(true)}>竖排示例</button><button onClick={()=>demo()}>体验示例<ArrowRight size={16}/></button></div></section></>:<div className="history-heading"><p className="eyebrow">YOUR READING SHELF</p><h1>我的阅读</h1><p className="muted">留在设备里的照片，和你上次读到的地方。</p><button className="primary" onClick={()=>upload.current?.click()}><Plus size={18}/>导入新照片</button></div>}
  {error&&<div role="alert" className="error global-error">{error}<button aria-label="关闭提示" onClick={()=>setError('')}><X size={17}/></button></div>}
  <section className="recent-section"><div className="section-heading"><h2>{screen==='history'?'阅读书架':'最近阅读'}<span>{recent.length.toString().padStart(2,'0')}</span></h2>{screen==='home'&&<button onClick={()=>setScreen('history')}>全部记录<ChevronRight size={16}/></button>}</div>{recent.length?<div className="reading-grid">{recent.map(r=><ReadingCard key={r.id} reading={r} onOpen={()=>openReading(r)} onDelete={async()=>{try{await deleteReading(r.id);refresh();notify('已删除这条本地记录');}catch{notify('删除失败，请重试');}}}/>)}</div>:<div className="empty-records"><BookOpen size={27} strokeWidth={1.3}/><div><strong>你的下一页，从这里开始</strong><p>识别后的照片会出现在这里，随时接着读。</p></div><button aria-label="导入第一张照片" onClick={()=>upload.current?.click()}><Plus size={21}/></button></div>}</section>
  <footer className="page-footer"><span>保留原文的温度，让文字更容易亲近。</span><button onClick={()=>setModels(true)}><span className={modelReady?'status-dot ready':'status-dot'}/>{modelReady?'离线模型已缓存':'准备离线阅读'}<ArrowRight size={13}/></button></footer>
