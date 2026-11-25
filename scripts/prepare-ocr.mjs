@@ -51,8 +51,25 @@ for(let p=0;p+512<=recArchive.length;){const h=recArchive.subarray(p,p+512),name
 const resize=recConfig?.PreProcess?.transform_ops?.find(op=>op.RecResizeImg)?.RecResizeImg;
 if(!resize?.image_shape||!Array.isArray(recConfig?.PostProcess?.character_dict))throw Error('Official recognition config is invalid');
 await writeFile(path.join(dest,'rec-params.json'),JSON.stringify({imageShape:resize.image_shape,charDict:[...recConfig.PostProcess.character_dict,' ']}));files.push('rec-params.json');
+const mirrorsFor=file=>{
+  if(file==='worker.js')return [
+    `https://fastly.jsdelivr.net/npm/@paddleocr/paddleocr-js@0.4.2/dist/assets/${worker}`,
+    `https://cdn.jsdelivr.net/npm/@paddleocr/paddleocr-js@0.4.2/dist/assets/${worker}`,
+    `https://unpkg.com/@paddleocr/paddleocr-js@0.4.2/dist/assets/${worker}`
+  ];
+  if(file.startsWith('ort-wasm-simd-threaded'))return [
+    `https://fastly.jsdelivr.net/npm/onnxruntime-web@${ortVersion}/dist/${file}`,
+    `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ortVersion}/dist/${file}`,
+    `https://unpkg.com/onnxruntime-web@${ortVersion}/dist/${file}`
+  ];
+  return undefined;
+};
 const assets=[];
-for(const file of files){const data=await readFile(path.join(dest,file));assets.push({url:file,bytes:data.length,sha256:createHash('sha256').update(data).digest('hex')});}
+for(const file of files){
+  const data=await readFile(path.join(dest,file));
+  const mirrors=mirrorsFor(file);
+  assets.push({url:file,bytes:data.length,sha256:createHash('sha256').update(data).digest('hex'),...(mirrors?{mirrors}:{})});
+}
 await writeFile(path.join(dest,'manifest.json'),JSON.stringify({version:'paddle-0.4.2-ort-1.24.3-v5-mobile',assets},null,2));
 // Install icons are authored assets in public/, never regenerated over the approved artwork.
 console.log(`OCR assets ready: ${(assets.reduce((s,a)=>s+a.bytes,0)/1048576).toFixed(1)} MiB. All served locally.`);

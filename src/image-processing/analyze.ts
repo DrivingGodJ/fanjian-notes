@@ -7,6 +7,7 @@ import {locateRecognizedCharacters} from '../alignment/recognition';
 import {detectImageDocumentQuad,rectifyPerspective} from './perspective';
 import {enhanceDocumentImage} from './enhance';
 import {sampleAnnotationsColors} from './colors';
+import {rectifyImage} from './unwarp';
 
 export interface PreprocessOptions {
  correct: boolean;
@@ -43,22 +44,29 @@ export async function autoPreprocessImage(
 ):Promise<PreparedImage>{
  let current=original;
  if(options.correct){
-  status('自动矫正书页角度与透视…',.1);
-  const quad=await detectImageDocumentQuad(current.blob);
-  signal.throwIfAborted();
-  if(quad.detected){
-   current=await rectifyPerspective(current,quad.corners);
+  status('正在进行 3D 书页曲面与透视矫正…',.12);
+  try{
+   current=await rectifyImage(current,signal,s=>status(s,.14));
    signal.throwIfAborted();
-  }
-  const skew=await detectImageSkew(current.blob,signal);
-  signal.throwIfAborted();
-  if(skew.confidence>=.35&&Math.abs(skew.angle)>=.3){
-   current=await transformImage(current,0,{left:0,top:0,right:1,bottom:1},skew.angle);
+  }catch(e){
+   if(e instanceof DOMException&&e.name==='AbortError')throw e;
+   status('使用基础透视与倾角矫正…',.15);
+   const quad=await detectImageDocumentQuad(current.blob);
    signal.throwIfAborted();
+   if(quad.detected){
+    current=await rectifyPerspective(current,quad.corners);
+    signal.throwIfAborted();
+   }
+   const skew=await detectImageSkew(current.blob,signal);
+   signal.throwIfAborted();
+   if(skew.confidence>=.35&&Math.abs(skew.angle)>=.3){
+    current=await transformImage(current,0,{left:0,top:0,right:1,bottom:1},skew.angle);
+    signal.throwIfAborted();
+   }
   }
  }
  if(options.enhance){
-  status('自动锐化增强清晰度…',.22);
+  status('自动锐化增强与均衡阴影…',.24);
   current=await enhanceDocumentImage(current);
   signal.throwIfAborted();
  }

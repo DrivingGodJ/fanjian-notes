@@ -3,8 +3,8 @@ export async function loadImage(blob:Blob):Promise<HTMLImageElement>{
   const url=URL.createObjectURL(blob),image=new Image();
   try{image.src=url;await image.decode();return image;}finally{URL.revokeObjectURL(url);}
 }
-export function canvasBlob(canvas:HTMLCanvasElement,type='image/jpeg',quality=.94):Promise<Blob>{return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('图片生成失败，请尝试较小的图片。')),type,quality));}
-export async function resizedCanvas(blob:Blob,maxSide=2400,maxPixels=5000000){
+export function canvasBlob(canvas:HTMLCanvasElement,type='image/jpeg',quality=.96):Promise<Blob>{return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('图片生成失败，请尝试较小的图片。')),type,quality));}
+export async function resizedCanvas(blob:Blob,maxSide=2600,maxPixels=6000000){
   const image=await loadImage(blob),ratio=Math.min(1,maxSide/Math.max(image.naturalWidth,image.naturalHeight),Math.sqrt(maxPixels/(image.naturalWidth*image.naturalHeight)));
   const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.naturalWidth*ratio));canvas.height=Math.max(1,Math.round(image.naturalHeight*ratio));
   const ctx=canvas.getContext('2d');if(!ctx)throw new Error('此浏览器无法创建图像画布。');
@@ -40,7 +40,7 @@ export async function transformImage(image:PreparedImage,turns:number,crop:Crop,
   const size=rotatedSize(image.width,image.height,degrees);rotated.width=size.width;rotated.height=size.height;
   const ctx=rotated.getContext('2d')!;ctx.fillStyle=sampleBorderColor(source);ctx.fillRect(0,0,rotated.width,rotated.height);ctx.translate(rotated.width/2,rotated.height/2);ctx.rotate(degrees*Math.PI/180);ctx.drawImage(source,-image.width/2,-image.height/2);
   const out=document.createElement('canvas');const x=Math.round(crop.left*rotated.width),y=Math.round(crop.top*rotated.height);
-  const cw=Math.max(1,Math.round((crop.right-crop.left)*rotated.width)),ch=Math.max(1,Math.round((crop.bottom-crop.top)*rotated.height)),ratio=Math.min(1,2400/Math.max(cw,ch),Math.sqrt(5000000/(cw*ch)));
+  const cw=Math.max(1,Math.round((crop.right-crop.left)*rotated.width)),ch=Math.max(1,Math.round((crop.bottom-crop.top)*rotated.height)),ratio=Math.min(1,2600/Math.max(cw,ch),Math.sqrt(6000000/(cw*ch)));
   out.width=Math.max(1,Math.round(cw*ratio));out.height=Math.max(1,Math.round(ch*ratio));
   out.getContext('2d')!.drawImage(rotated,x,y,cw,ch,0,0,out.width,out.height);
   const result={blob:await canvasBlob(out),width:out.width,height:out.height,name:image.name};rotated.width=1;out.width=1;return result;

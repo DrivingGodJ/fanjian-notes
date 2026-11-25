@@ -18,7 +18,13 @@
 
 .mobile-header { gap: 8px; }
 .mobile-header .brand { margin-right: auto; }
+.mobile-header-actions { display: flex; align-items: center; gap: 2px; }
 .mobile-back { color: var(--green); margin-left: -6px; }
+.topbar-actions { display: flex; align-items: center; gap: 14px; }
+.topbar-update { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: #fbfcf8; }
+.topbar-update.ready { background: #e8efe0; border-color: #8fb17d; color: #234e3e; font-weight: 600; }
+.icon-button.update-ready { position: relative; color: var(--green); }
+.icon-button.update-ready::after { content: ''; position: absolute; right: 7px; top: 7px; width: 7px; height: 7px; border-radius: 50%; background: #c35a38; }
 .back-home { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px 6px 8px; border-radius: 999px; border: 1px solid var(--line); background: #fbfcf8; color: var(--green); font-size: 12px; font-weight: 550; margin-bottom: 14px; }
 .camera-full-grid { position: absolute; inset: 0; pointer-events: none; }
 .camera-full-grid span { position: absolute; background: #ffffff30; }
@@ -28,6 +34,19 @@
 .camera-full-grid span:nth-child(4) { top: 66.66%; left: 0; right: 0; height: 1px; }
 .camera-torch { position: absolute; left: 20px; top: max(20px, env(safe-area-inset-top)); z-index: 2; background: #23342799; border: 1px solid #ffffff30; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; color: #fff; }
 .camera-torch.active { background: #e9eedc; color: #285745; }
+
+.troubleshoot-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--green); padding: 8px 0; margin: 6px 0; border-top: 1px solid var(--line); }
+.troubleshoot-box { border: 1px solid var(--line); border-radius: 10px; background: #f2f5eb; padding: 12px 14px; margin: 4px 0 14px; font-size: 11px; }
+.source-label { display: block; color: #5f7255; font-size: 10px; }
+.source-select { display: block; width: 100%; margin-top: 6px; padding: 8px 10px; border-radius: 7px; border: 1px solid #d5decb; background: #fbfcf8; color: #293c32; font-size: 11px; }
+.troubleshoot-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.diag-report { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.diag-summary { margin: 0 0 8px; font-size: 11px; line-height: 1.6; color: #465b3d; }
+.diag-list { list-style: none; padding: 0; margin: 0 0 10px; }
+.diag-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 10px; color: #6e7f63; gap: 8px; }
+.diag-ok { color: #3c6e37; font-weight: 550; }
+.diag-fail { color: #a75838; font-weight: 550; }
+.download-logs { margin-top: 10px; padding: 8px 10px; border-radius: 7px; background: #e8ede0; font-size: 10px; line-height: 1.6; color: #5b6d52; }
 
 .reader { display: flex; flex-direction: column; }
 .reader .viewport { flex: 1; height: auto; min-height: 0; }
@@ -72,7 +91,8 @@
   .brand-mark, .primary, .export-button { background: #aec79a; color: #18271a; }
   .brand-mark i { border-color: #18231c; background: #516b42; }
   .primary:hover { background: #bfd4ad; }
-  .secondary, .back-home, .reader-action { background: #1c2a20; border-color: #3c5038; color: #cadac0; }
+  .secondary, .back-home, .reader-action, .topbar-update { background: #1c2a20; border-color: #3c5038; color: #cadac0; }
+  .topbar-update.ready { background: #2a3d2c; border-color: #7ea36b; color: #d5e6c5; }
   .reader-action.active, .reader-action.saved { background: #2a3d2c; border-color: #6c8d5e; color: #d5e6c5; }
   .icon-button:hover { background: #2a3d2c; }
   .topbar { color: #96a98d; }
@@ -135,4 +155,10 @@
   .reader-panel { background: #1a291df5; border-color: #405836; box-shadow: 0 10px 50px #00000055; }
   .export-dimensions { color: #c1d8a6; }
   .export-dimensions span { color: #a5bc8f; }
+  .troubleshoot-box { background: #17231a; }
+  .source-label, .diag-summary, .diag-row { color: #b6cba1; }
+  .source-select { background: #1e2d21; border-color: #3c5038; color: #dce9cf; }
+  .diag-ok { color: #9fd18b; }
+  .diag-fail { color: #ebb18f; }
+  .download-logs { background: #213124; color: #b4c8a0; }
 }

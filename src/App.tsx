@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {ArrowDownToLine,ArrowLeft,ArrowRight,BookOpen,Camera as CameraIcon,Check,ChevronRight,CloudOff,HardDrive,ImagePlus,Leaf,LoaderCircle,Plus,ShieldCheck,Sparkles,Trash2,X} from 'lucide-react';
+import {ArrowDownToLine,ArrowLeft,ArrowRight,BookOpen,Camera as CameraIcon,Check,ChevronRight,CloudOff,HardDrive,ImagePlus,Leaf,LoaderCircle,Plus,RefreshCw,ShieldCheck,Sparkles,Trash2,X} from 'lucide-react';
 import {registerSW} from 'virtual:pwa-register';
 import type {PreparedImage,Reading} from './types';
 import {DEFAULT_STYLE} from './types';
@@ -8,7 +8,7 @@ import {ALIGNMENT_VERSION} from './alignment/CharacterAlignmentEngine';
 import {analyzeImageLines,autoPreprocessImage,improveReading,type PreprocessOptions} from './image-processing/analyze';
 import {recognize} from './ocr/adapter';
 import {listReadings,saveReading,deleteReading} from './storage/readings';
-import {cacheStatus} from './ocr/model-cache';
+import {cacheStatus,MODEL_CACHE} from './ocr/model-cache';
 import {Camera} from './camera/Camera';
 import {Reader} from './ui/Reader';
 import {ModelManager} from './ui/ModelManager';
@@ -16,14 +16,15 @@ import {useBlobUrl} from './ui/hooks';
 
 type Screen='home'|'processing'|'reader'|'history';
 const ONBOARDING_KEY='fanjian-onboarding-dismissed';
+const isMobileDevice=()=>/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
 function App(){
  const [screen,setScreen]=useState<Screen>('home'),[camera,setCamera]=useState(false),[models,setModels]=useState(false),[onboarding,setOnboarding]=useState(false);
  const [prepared,setPrepared]=useState<PreparedImage>(),[pendingOptions,setPendingOptions]=useState<PreprocessOptions>({correct:true,enhance:true});
  const [reading,setReading]=useState<Reading>(),[saved,setSaved]=useState(false);
  const latestReading=useRef(reading);latestReading.current=reading;
- const [recent,setRecent]=useState<Reading[]>([]),[toast,setToast]=useState(''),[error,setError]=useState(''),[step,setStep]=useState(''),[progress,setProgress]=useState(0),[importing,setImporting]=useState(false),[modelReady,setModelReady]=useState(false),[offline,setOffline]=useState(!navigator.onLine),[update,setUpdate]=useState<(()=>void)>();
- const upload=useRef<HTMLInputElement>(null),capture=useRef<HTMLInputElement>(null),controller=useRef<AbortController>(null),taskId=useRef(0);
+ const [recent,setRecent]=useState<Reading[]>([]),[toast,setToast]=useState(''),[error,setError]=useState(''),[step,setStep]=useState(''),[progress,setProgress]=useState(0),[importing,setImporting]=useState(false),[modelReady,setModelReady]=useState(false),[offline,setOffline]=useState(!navigator.onLine),[update,setUpdate]=useState<(()=>void)>(),[checkingUpdate,setCheckingUpdate]=useState(false),[forceRefreshReady,setForceRefreshReady]=useState(false);
+ const upload=useRef<HTMLInputElement>(null),capture=useRef<HTMLInputElement>(null),controller=useRef<AbortController>(null),taskId=useRef(0),swRegRef=useRef<ServiceWorkerRegistration|null>(null),forceTimerRef=useRef<ReturnType<typeof setTimeout>|null>(null);
  const notify=(message:string)=>setToast(message);
  const refresh=()=>listReadings().then(setRecent).catch(()=>notify('此浏览器的本地记录不可用，仍可识别与导出。'));
 
@@ -35,10 +36,67 @@ function App(){
    try{dismissed=!!localStorage.getItem(ONBOARDING_KEY);}catch{}
    if(!s.ready&&!dismissed)setOnboarding(true);
   }).catch(()=>{});
-  const apply=registerSW({onNeedRefresh(){setUpdate(()=>()=>apply(true));},onOfflineReady(){notify('应用文件已缓存，可继续准备离线模型');}});
-  const online=()=>setOffline(!navigator.onLine);window.addEventListener('online',online);window.addEventListener('offline',online);
-  return()=>{controller.current?.abort();window.removeEventListener('online',online);window.removeEventListener('offline',online);};
+  const apply=registerSW({
+   onRegisteredSW(_swUrl,registration){swRegRef.current=registration??null;},
+   onNeedRefresh(){setUpdate(()=>()=>apply(true));},
+   onOfflineReady(){notify('应用文件已缓存，可继续准备离线模型');}
+  });
+  const online=()=>setOffline(!navigator.onLine);
+  const onVisible=()=>{if(document.visibilityState==='visible')swRegRef.current?.update().catch(()=>{});};
+  window.addEventListener('online',online);window.addEventListener('offline',online);document.addEventListener('visibilitychange',onVisible);
+  return()=>{controller.current?.abort();if(forceTimerRef.current)clearTimeout(forceTimerRef.current);window.removeEventListener('online',online);window.removeEventListener('offline',online);document.removeEventListener('visibilitychange',onVisible);};
  },[]);
+
+ const checkForUpdate=async()=>{
+  if(!navigator.onLine){notify('当前处于离线状态，联网后可检查更新');return;}
+  if(update){notify('正在更新到最新版本…');update();return;}
+  if(forceRefreshReady){
+   notify('正在强制刷新页面（保留离线模型）…');
+   try{
+    if('serviceWorker' in navigator){
+     const regs=await navigator.serviceWorker.getRegistrations();
+     await Promise.all(regs.map(r=>r.unregister()));
+    }
+    if('caches' in globalThis){
+     const keys=await caches.keys();
+     await Promise.all(keys.filter(k=>k!==MODEL_CACHE).map(k=>caches.delete(k)));
+    }
+   }catch{}
+   location.reload();
+   return;
+  }
+  setCheckingUpdate(true);
+  try{
+   const activateAndReload=(worker:ServiceWorker)=>{
+    navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload(),{once:true});
+    worker.postMessage({type:'SKIP_WAITING'});
+   };
+   const reg=swRegRef.current??(await navigator.serviceWorker?.getRegistration?.());
+   if(reg){
+    await reg.update();
+    if(reg.waiting){notify('发现新版本，正在更新…');activateAndReload(reg.waiting);return;}
+    if(reg.installing){
+     notify('发现新版本，正在下载…');
+     const worker=reg.installing;
+     await new Promise<void>(resolve=>{
+      const timer=setTimeout(resolve,15000);
+      const onChange=()=>{if(worker.state==='installed'||worker.state==='redundant'){clearTimeout(timer);worker.removeEventListener('statechange',onChange);resolve();}};
+      worker.addEventListener('statechange',onChange);
+     });
+     if(reg.waiting){activateAndReload(reg.waiting);return;}
+    }
+   }
+   setForceRefreshReady(true);
+   if(forceTimerRef.current)clearTimeout(forceTimerRef.current);
+   forceTimerRef.current=setTimeout(()=>setForceRefreshReady(false),10000);
+   notify('当前已是最新版本；如需强制刷新，再点一次更新按钮');
+  }catch{
+   setForceRefreshReady(true);
+   if(forceTimerRef.current)clearTimeout(forceTimerRef.current);
+   forceTimerRef.current=setTimeout(()=>setForceRefreshReady(false),10000);
+   notify('检查更新未响应；再点一次更新按钮可强制刷新');
+  }finally{setCheckingUpdate(false);}
+ };
 
  useEffect(()=>{if(!toast)return;const id=setTimeout(()=>setToast(''),4500);return()=>clearTimeout(id);},[toast]);
 
@@ -139,11 +197,14 @@ function App(){
   <header className="mobile-header">
    {screen==='history'?<button className="icon-button mobile-back" aria-label="返回首页" onClick={goHome}><ArrowLeft size={21}/></button>:null}
    <button className="brand" onClick={goHome}><span className="brand-mark"><BookOpen size={23}/><i/></span><span>{screen==='history'?'我的阅读':'繁简旁注'}</span></button>
-   <button className="icon-button" aria-label="离线模型管理" onClick={()=>setModels(true)}><HardDrive size={20}/></button>
+   <div className="mobile-header-actions">
+    <button className={update?'icon-button update-ready':'icon-button'} aria-label={update?'更新到最新版本':'检查更新'} disabled={checkingUpdate} onClick={checkForUpdate}><RefreshCw size={19} className={checkingUpdate?'spin':''}/></button>
+    <button className="icon-button" aria-label="离线模型管理" onClick={()=>setModels(true)}><HardDrive size={20}/></button>
+   </div>
   </header>
  </>}
  <main className={isReader?'reader-main':'main-content'}>
- {!isReader&&<div className="topbar"><span><i className={offline?'status-dot':'status-dot ready'}/>{offline?'离线阅读模式':'每一页，都值得读懂'}</span><button onClick={()=>setModels(true)}><ShieldCheck size={15}/><span>本地处理，隐私安心</span></button></div>}
+ {!isReader&&<div className="topbar"><span><i className={offline?'status-dot':'status-dot ready'}/>{offline?'离线阅读模式':'每一页，都值得读懂'}</span><div className="topbar-actions"><button type="button" className={update?'topbar-update ready':'topbar-update'} disabled={checkingUpdate} onClick={checkForUpdate}><RefreshCw size={14} className={checkingUpdate?'spin':''}/><span>{checkingUpdate?'检查中…':update?'发现新版本 · 点击更新':'检查更新'}</span></button><button onClick={()=>setModels(true)}><ShieldCheck size={15}/><span>本地处理，隐私安心</span></button></div></div>}
  {(screen==='home'||screen==='history')&&<>
  {screen==='home'?<>
   <div className="page-kicker"><span/>让阅读自然发生 <span className="kicker-en">A LITTLE HELP, A BETTER READ</span></div>
@@ -152,7 +213,7 @@ function App(){
     <h1>看见原文。<br/>读懂<span className="serif-accent">每一字。</span><Leaf className="hero-leaf" size={34} strokeWidth={1.4}/></h1>
     <p>拍下一页繁体，原位替换为同色简体。<br/>自动矫正与清晰增强，让纸页阅读毫无负担。</p>
     <div className="hero-actions">
-     <button className="primary" disabled={importing} onClick={()=>setCamera(true)}><CameraIcon size={20}/>拍照识别<ArrowRight size={17}/></button>
+     <button className="primary" disabled={importing} onClick={()=>{if(isMobileDevice())capture.current?.click();else setCamera(true);}}><CameraIcon size={20}/>拍照识别<ArrowRight size={17}/></button>
      <button className="secondary" disabled={importing} onClick={()=>upload.current?.click()}><ImagePlus size={19}/>{importing?'正在读取…':'从相册导入'}</button>
     </div>
     <div className="hero-footnote"><CloudOff size={14}/>无需云端 OCR<span>·</span>无需账号<span>·</span>照片留在本机</div>

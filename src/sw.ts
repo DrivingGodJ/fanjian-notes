@@ -7,6 +7,6 @@ declare const self:ServiceWorkerGlobalScope & {__WB_MANIFEST:Array<{url:string;r
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 const ocrPrefix=new URL('ocr/',self.registration.scope);
-registerRoute(({url})=>url.origin===ocrPrefix.origin&&url.pathname.startsWith(ocrPrefix.pathname),new CacheFirst({cacheName:MODEL_CACHE,matchOptions:{ignoreVary:true}}));
+registerRoute(({url})=>url.origin===ocrPrefix.origin&&url.pathname.startsWith(ocrPrefix.pathname)&&!url.searchParams.has('direct'),new CacheFirst({cacheName:MODEL_CACHE,matchOptions:{ignoreVary:true}}));
 self.addEventListener('message',event=>{if(event.data?.type==='SKIP_WAITING')self.skipWaiting();});
 self.addEventListener('activate',event=>event.waitUntil(self.clients.claim()));
