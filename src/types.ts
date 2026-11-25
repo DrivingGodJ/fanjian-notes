@@ -20,6 +20,8 @@ export interface Annotation {
   modified: boolean; visible: boolean; deleted?: boolean;
   needsReview?:boolean;
   offset?: Point; kind: 'character' | 'phrase';
+  bgColor?: string;
+  inkColor?: string;
 }
 export interface AnnotationStyle {
   size: number; color: string; opacity: number; background: boolean;
@@ -31,6 +33,10 @@ export interface Reading {
   annotations: Annotation[]; style: AnnotationStyle; showAnnotations: boolean;
   view: ViewTransform; demo?: boolean;
   alignmentVersion?:number;
+  originalImage?: Blob;
+  originalWidth?: number;
+  originalHeight?: number;
+  preprocess?: { correct: boolean; enhance: boolean };
 }
 export interface PreparedImage { blob: Blob; width: number; height: number; name: string }
-export const DEFAULT_STYLE: AnnotationStyle = {size: .48, color: '#b34c32', opacity: 1, background: true};
+export const DEFAULT_STYLE: AnnotationStyle = {size: .94, color: '#222420', opacity: 1, background: true};

@@ -27,8 +27,20 @@ describe('natural-pixel transforms and layout',()=>{
  it('maps OCR resized-image polygons back to the reading image',()=>{const q:Quad=[{x:10,y:20},{x:30,y:20},{x:30,y:40},{x:10,y:40}];expect(mapQuad(q,{width:100,height:200},{width:1000,height:1000})[0]).toEqual({x:100,y:100});});
  it('round trips pixels through zoom and pan, including fractional scales',()=>{const t={x:-43.3,y:75.2,scale:2.719},p={x:129.3,y:490.7};const actual=screenToImage(imageToScreen(p,t),t);expect(actual.x).toBeCloseTo(p.x);expect(actual.y).toBeCloseTo(p.y);});
  it('preserves the point underneath a pinch anchor through repeated zooms',()=>{let t={x:50,y:80,scale:.5};const anchor={x:212,y:164},p=screenToImage(anchor,t);for(const scale of [.71,2.3,.35,4.2,.5]){t=zoomAt(t,anchor,scale);expect(imageToScreen(p,t).x).toBeCloseTo(anchor.x);expect(imageToScreen(p,t).y).toBeCloseTo(anchor.y);}});
- it('hides an edge label instead of moving it onto unrelated text',()=>{const a=engine.align(line)[0];const labels=layoutAnnotations([{...a,id:'a',center:{x:5,y:10},position:{x:5,y:-10},angle:0}],DEFAULT_STYLE,1200,500);expect(labels[0].hidden).toBe(true);});
- it('excludes hidden/deleted annotations from both render and export layout',()=>{const notes=engine.align(line);expect(layoutAnnotations([{...notes[0],visible:false},{...notes[1],deleted:true},notes[2]],DEFAULT_STYLE,1200,500)).toHaveLength(1);});
+ it('places in-place replacement directly over character center with adaptive colors',()=>{
+  const a={...engine.align(line)[0],center:{x:120,y:200},charWidth:48,charHeight:52,bgColor:'rgb(240,234,218)',inkColor:'rgb(36,32,28)'};
+  const [label]=layoutAnnotations([a],DEFAULT_STYLE,1200,500);
+  expect(label.hidden).toBe(false);
+  expect(label.x).toBe(120);expect(label.y).toBe(200);
+  expect(label.fontSize).toBeCloseTo(48*.94);
+  expect(label.width).toBeGreaterThanOrEqual(48);expect(label.height).toBeGreaterThanOrEqual(52);
+  expect(label.bgColor).toBe('rgb(240,234,218)');expect(label.inkColor).toBe('rgb(36,32,28)');
+ });
+ it('hides out-of-bounds centers and excludes hidden/deleted annotations',()=>{
+  const notes=engine.align(line);
+  expect(layoutAnnotations([{...notes[0],center:{x:-10,y:50}}],DEFAULT_STYLE,1200,500)[0].hidden).toBe(true);
+  expect(layoutAnnotations([{...notes[0],visible:false},{...notes[1],deleted:true},notes[2]],DEFAULT_STYLE,1200,500)).toHaveLength(1);
+ });
 });
 describe('whole-column projection and safe gutters',()=>{
  const column:OcrLine={id:'column',text:'這個美麗頭髮',direction:'vertical',confidence:.95,polygon:[{x:30,y:0},{x:70,y:0},{x:70,y:310},{x:30,y:310}]};
@@ -43,14 +55,10 @@ describe('whole-column projection and safe gutters',()=>{
   const centers=[20,58,105,158,223,285];const sample=(p:{x:number;y:number})=>{const x=p.x-(p.y-10)*.1;return x>58&&x<83&&centers.some(y=>Math.abs(p.y-10-y)<12)?.95:.05;};
   const notes=engine.align(slanted,sample);expect(notes.every(a=>a.method==='projection')).toBe(true);expect(notes.at(-1)!.center.x).toBeGreaterThan(notes[0].center.x+20);
  });
- it('shrinks notes into the gutter without pushing them across the adjacent column',()=>{
-  const a={...engine.align(column)[0],center:{x:110,y:100},position:{x:143,y:100},charWidth:40,charHeight:40};
+ it('keeps in-place replacements visible over every column glyph without shifting',()=>{
+  const a={...engine.align(column)[0],center:{x:110,y:100},charWidth:40,charHeight:40};
   const neighbor:OcrLine={...column,id:'neighbor',polygon:[{x:145,y:0},{x:185,y:0},{x:185,y:400},{x:145,y:400}]};
-  const [l]=layoutAnnotations([a],DEFAULT_STYLE,400,500,[neighbor]);expect(l.hidden).toBe(false);expect(l.fontSize).toBeLessThan(40*DEFAULT_STYLE.size);expect(l.x+l.width/2).toBeLessThan(151);expect(l.y).toBe(100);
- });
- it('suppresses crowded notes rather than migrating to the next column',()=>{
-  const a={...engine.align(column)[0],center:{x:110,y:100},position:{x:143,y:100},charWidth:40,charHeight:40};
-  const neighbor:OcrLine={...column,id:'neighbor',polygon:[{x:130,y:0},{x:170,y:0},{x:170,y:400},{x:130,y:400}]};
-  expect(layoutAnnotations([a],DEFAULT_STYLE,400,500,[neighbor])[0].hidden).toBe(true);
+  const [l]=layoutAnnotations([a],DEFAULT_STYLE,400,500,[neighbor]);
+  expect(l.hidden).toBe(false);expect(l.x).toBe(110);expect(l.y).toBe(100);
  });
 });

@@ -2,8 +2,7 @@ import type { PreparedImage } from '../types';
 import { canvasBlob, loadImage } from './images';
 
 /**
- * Gently normalize uneven shadows and boost faint ink contrast while preserving paper readability.
- * Uses a 2D integral image for O(W*H) local background estimation.
+ * Normalize uneven shadows, enhance faint ink contrast, and apply luminance-only 3x3 unsharp mask sharpening.
  */
 export function enhanceDocumentRgba(
   rgba: Uint8ClampedArray,
@@ -27,7 +26,9 @@ export function enhanceDocumentRgba(
   }
 
   const r = Math.max(18, Math.round(Math.min(width, height) / 14));
-  const out = new Uint8ClampedArray(count * 4);
+  const mid = new Uint8ClampedArray(count * 4);
+  const midLum = new Float32Array(count);
+
   for (let y = 0; y < height; y++) {
     const y0 = Math.max(0, y - r), y1 = Math.min(height, y + r + 1);
     for (let x = 0; x < width; x++) {
@@ -43,14 +44,33 @@ export function enhanceDocumentRgba(
       const rawGain = Math.min(1.85, Math.max(0.85, 240 / Math.max(bg, 65)));
       let gain = 0.72 * rawGain + 0.28;
       const idx = y * width + x, l = lum[idx];
-      if (l < bg - 15) {
-        gain *= 0.88;
-      }
+      if (l < bg - 15) gain *= 0.88;
       const p = idx * 4;
-      out[p] = Math.min(255, Math.max(0, Math.round(rgba[p] * gain)));
-      out[p + 1] = Math.min(255, Math.max(0, Math.round(rgba[p + 1] * gain)));
-      out[p + 2] = Math.min(255, Math.max(0, Math.round(rgba[p + 2] * gain)));
-      out[p + 3] = rgba[p + 3];
+      const nr = Math.min(255, Math.max(0, Math.round(rgba[p] * gain)));
+      const ng = Math.min(255, Math.max(0, Math.round(rgba[p + 1] * gain)));
+      const nb = Math.min(255, Math.max(0, Math.round(rgba[p + 2] * gain)));
+      mid[p] = nr; mid[p + 1] = ng; mid[p + 2] = nb; mid[p + 3] = rgba[p + 3];
+      midLum[idx] = nr * 0.299 + ng * 0.587 + nb * 0.114;
+    }
+  }
+
+  const out = new Uint8ClampedArray(mid);
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const idx = y * width + x;
+      const center = midLum[idx];
+      const blur = (
+        4 * center
+        + 2 * (midLum[idx - 1] + midLum[idx + 1] + midLum[idx - width] + midLum[idx + width])
+        + (midLum[idx - width - 1] + midLum[idx - width + 1] + midLum[idx + width - 1] + midLum[idx + width + 1])
+      ) / 16;
+      const diff = center - blur;
+      if (Math.abs(diff) <= 3) continue;
+      const boost = Math.max(-55, Math.min(55, Math.round(diff * 1.2)));
+      const p = idx * 4;
+      out[p] = Math.min(255, Math.max(0, mid[p] + boost));
+      out[p + 1] = Math.min(255, Math.max(0, mid[p + 1] + boost));
+      out[p + 2] = Math.min(255, Math.max(0, mid[p + 2] + boost));
     }
   }
   return out;

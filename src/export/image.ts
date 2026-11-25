@@ -10,10 +10,13 @@ export async function exportReading(reading:Reading,type:'image/png'|'image/jpeg
  if(reading.showAnnotations)for(const l of layoutAnnotations(reading.annotations,reading.style,reading.width,reading.height,reading.lines)){
    if(l.hidden)continue;
    ctx.save();ctx.translate(l.x,l.y);ctx.rotate(l.angle*Math.PI/180);ctx.globalAlpha=reading.style.opacity;
-   if(reading.style.background){ctx.fillStyle='#fffdf4';ctx.fillRect(-l.width/2,-l.height/2,l.width,l.height);}
-   ctx.fillStyle=reading.style.color;ctx.font=`600 ${l.fontSize}px ${ANNOTATION_FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(l.annotation.simplified,0,0);ctx.restore();
+   ctx.fillStyle=l.bgColor;
+   const r=Math.min(l.width,l.height)*.14;
+   if(typeof ctx.roundRect==='function'){ctx.beginPath();ctx.roundRect(-l.width/2,-l.height/2,l.width,l.height,r);ctx.fill();}
+   else ctx.fillRect(-l.width/2,-l.height/2,l.width,l.height);
+   ctx.fillStyle=l.inkColor;ctx.font=`500 ${l.fontSize}px ${ANNOTATION_FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(l.annotation.simplified,0,0);ctx.restore();
  }
  const blob=await canvasBlob(canvas,type);canvas.width=1;
- const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`${reading.name.replace(/\.[^.]+$/,'')}-繁简旁注.${type==='image/png'?'png':'jpg'}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);
+ const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`${reading.name.replace(/\.[^.]+$/,'')}-繁简替换.${type==='image/png'?'png':'jpg'}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);
  return blob;
 }

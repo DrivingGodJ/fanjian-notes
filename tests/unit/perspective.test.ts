@@ -132,4 +132,19 @@ describe('4-corner perspective rectification', () => {
     expect(Math.abs(litBg - shadowBg)).toBeLessThan(70);
     expect(shadowBg - shadowInk).toBeGreaterThan(80);
   });
+
+  it('sharpens soft blurred text edges via luminance unsharp masking', () => {
+    const w = 60, h = 60, rgba = new Uint8ClampedArray(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = (y * w + x) * 4;
+        const val = x < 28 ? 230 : x === 28 ? 170 : x === 29 ? 110 : 50;
+        rgba[idx] = val; rgba[idx + 1] = val; rgba[idx + 2] = val; rgba[idx + 3] = 255;
+      }
+    }
+    const enhanced = enhanceDocumentRgba(rgba, w, h);
+    const beforeStep = rgba[(30 * w + 28) * 4] - rgba[(30 * w + 29) * 4];
+    const afterStep = enhanced[(30 * w + 28) * 4] - enhanced[(30 * w + 29) * 4];
+    expect(afterStep).toBeGreaterThan(beforeStep);
+  });
 });

@@ -1,10 +1,18 @@
-import {resizedCanvas} from './images';
-import type {OcrLine} from '../types';
+import {resizedCanvas,transformImage} from './images';
+import type {OcrLine,PreparedImage,Reading} from '../types';
 import {estimateDeskew,pixelSampler,type DeskewResult,type GrayImage} from './analysis';
 import {CharacterAlignmentEngine,ALIGNMENT_VERSION} from '../alignment/CharacterAlignmentEngine';
-import type {Reading} from '../types';
 import {canonicalizeQuad,inferDirection} from '../alignment/geometry';
 import {locateRecognizedCharacters} from '../alignment/recognition';
+import {detectImageDocumentQuad,rectifyPerspective} from './perspective';
+import {enhanceDocumentImage} from './enhance';
+import {sampleAnnotationsColors} from './colors';
+
+export interface PreprocessOptions {
+ correct: boolean;
+ enhance: boolean;
+}
+
 async function grayImage(blob:Blob,maxSide:number,maxPixels:number):Promise<GrayImage>{
  const canvas=await resizedCanvas(blob,maxSide,maxPixels),ctx=canvas.getContext('2d',{willReadFrequently:true})!;
  const {data}=ctx.getImageData(0,0,canvas.width,canvas.height),gray=new Uint8Array(canvas.width*canvas.height);
@@ -18,7 +26,7 @@ async function analyze<T>(operation:'deskew'|'align',image:GrayImage,target:{wid
   const worker=new Worker(new URL('./analysis.worker.ts',import.meta.url),{type:'module'});
   const cleanup=()=>{worker.terminate();signal?.removeEventListener('abort',abort);clearTimeout(timer);};
   const abort=()=>{cleanup();reject(new DOMException('已取消','AbortError'));};
-  const timer=setTimeout(()=>{cleanup();reject(new Error('图像分析耗时过长，请裁剪文字区域后重试。'));},45000);
+  const timer=setTimeout(()=>{cleanup();reject(new Error('图像分析耗时过长，请换一张较清晰的照片后重试。'));},45000);
   signal?.addEventListener('abort',abort,{once:true});
   worker.onmessage=event=>{cleanup();event.data.error?reject(new Error(event.data.error)):resolve(event.data.result);};
   worker.onerror=()=>{cleanup();reject(new Error('图像分析失败，请尝试较小的照片。'));};
@@ -26,11 +34,46 @@ async function analyze<T>(operation:'deskew'|'align',image:GrayImage,target:{wid
  });
 }
 export async function detectImageSkew(blob:Blob,signal?:AbortSignal){const image=await grayImage(blob,850,650000);return analyze<DeskewResult>('deskew',image,image,[],signal);}
+
+export async function autoPreprocessImage(
+ original:PreparedImage,
+ options:PreprocessOptions,
+ signal:AbortSignal,
+ status:(label:string,progress?:number)=>void
+):Promise<PreparedImage>{
+ let current=original;
+ if(options.correct){
+  status('自动矫正书页角度与透视…',.1);
+  const quad=await detectImageDocumentQuad(current.blob);
+  signal.throwIfAborted();
+  if(quad.detected){
+   current=await rectifyPerspective(current,quad.corners);
+   signal.throwIfAborted();
+  }
+  const skew=await detectImageSkew(current.blob,signal);
+  signal.throwIfAborted();
+  if(skew.confidence>=.35&&Math.abs(skew.angle)>=.3){
+   current=await transformImage(current,0,{left:0,top:0,right:1,bottom:1},skew.angle);
+   signal.throwIfAborted();
+  }
+ }
+ if(options.enhance){
+  status('自动锐化增强清晰度…',.22);
+  current=await enhanceDocumentImage(current);
+  signal.throwIfAborted();
+ }
+ return current;
+}
+
 export async function alignImageCharacters(image:{blob:Blob;width:number;height:number},lines:OcrLine[],signal?:AbortSignal){
  return (await analyzeImageLines(image,lines,signal)).annotations;
 }
 export async function analyzeImageLines(image:{blob:Blob;width:number;height:number},lines:OcrLine[],signal?:AbortSignal,status?:(s:string)=>void){
- const located=await locateRecognizedCharacters(image,lines,signal,status);signal?.throwIfAborted();return {lines:located,annotations:new CharacterAlignmentEngine().alignAll(located)};
+ const located=await locateRecognizedCharacters(image,lines,signal,status);signal?.throwIfAborted();
+ const annotations=new CharacterAlignmentEngine().alignAll(located);
+ const colored=await sampleAnnotationsColors(image.blob,image.width,image.height,annotations);
+ signal?.throwIfAborted();
+ return {lines:located,annotations:colored};
 }
 export async function improveReading(reading:Reading,signal?:AbortSignal):Promise<Reading>{
  const lines=reading.lines.map(l=>{const manual=l.directionSource==='manual'||l.modified&&!l.directionSource,direction=manual?l.direction:inferDirection(l.polygon);return {...l,direction,polygon:canonicalizeQuad(l.polygon,direction)};});

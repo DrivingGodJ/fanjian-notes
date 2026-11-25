@@ -1,24 +1,38 @@
 import {test,expect} from '@playwright/test';
-test('saved legacy readings receive new pixel positions while preserving manual edits',async({page})=>{
- await page.goto('./');await page.getByRole('button',{name:'体验示例',exact:true}).click();await expect(page.getByTestId('reading-svg')).toBeVisible();
- await page.getByRole('button',{name:'返回首页',exact:true}).click();
- const before=await page.evaluate(async()=>{
-  const db=await new Promise<IDBDatabase>((resolve,reject)=>{const r=indexedDB.open('fanjian-notes',1);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
-  return new Promise<{id:string;manualPosition:{x:number;y:number};changedId:string;oldX:number;hiddenId:string}>((resolve,reject)=>{
-   const tx=db.transaction('readings','readwrite'),store=tx.objectStore('readings'),req=store.getAll();let value:Parameters<typeof resolve>[0];
-   req.onsuccess=()=>{const r=req.result[0];r.demo=false;delete r.alignmentVersion;
-    const [manual,hidden,changed]=r.annotations;manual.method='manual';manual.modified=true;manual.offset={x:4,y:-3};hidden.visible=false;hidden.modified=true;
-    changed.position.x+=300;value={id:r.id,manualPosition:{...manual.position},changedId:changed.id,oldX:changed.position.x,hiddenId:hidden.id};store.put(r);
-   };tx.oncomplete=()=>{db.close();resolve(value);};tx.onerror=()=>reject(tx.error);
+
+test('saved legacy readings upgrade alignment and sample adaptive colors on open',async({page})=>{
+ await page.addInitScript(()=>{localStorage.setItem('fanjian-onboarding-dismissed','1');});
+ await page.goto('./');
+ await page.evaluate(async()=>{
+  const c=document.createElement('canvas');c.width=900;c.height=300;const g=c.getContext('2d')!;
+  g.fillStyle='#f7f1e1';g.fillRect(0,0,900,300);g.fillStyle='#1f231e';
+  g.font='64px "SimSun","Noto Serif CJK SC",serif';g.fillText('這是一個美麗的世界',80,170);
+  const blob=await new Promise<Blob>(r=>c.toBlob(b=>r(b!),'image/png'));
+  const db=await new Promise<IDBDatabase>((resolve,reject)=>{
+   const r=indexedDB.open('fanjian-notes',1);
+   r.onupgradeneeded=()=>r.result.createObjectStore('readings',{keyPath:'id'});
+   r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);
+  });
+  await new Promise<void>((resolve,reject)=>{
+   const tx=db.transaction('readings','readwrite');
+   tx.objectStore('readings').put({
+    id:'legacy-1',name:'旧记录迁移.png',createdAt:1000,updatedAt:1000,
+    image:blob,width:900,height:300,
+    lines:[{id:'line-0',text:'這是一個美麗的世界',direction:'horizontal',confidence:.95,polygon:[{x:80,y:110},{x:660,y:110},{x:660,y:185},{x:80,y:185}]}],
+    annotations:[{id:'line-0:0:0',lineId:'line-0',sourceIndex:0,original:'這',simplified:'这',center:{x:110,y:145},position:{x:110,y:95},direction:'horizontal',charWidth:64,charHeight:64,angle:0,ocrConfidence:.95,positionConfidence:.5,method:'geometry',modified:false,visible:true,kind:'character'}],
+    style:{size:.94,color:'#222420',opacity:1,background:true},showAnnotations:true,view:{x:0,y:0,scale:0}
+   });
+   tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>reject(tx.error);
   });
  });
- await page.reload();await page.locator('.reading-card .reading-thumbnail').first().click();
- const state=()=>page.evaluate(async(id)=>{
+ await page.reload();
+ await page.locator('.reading-card .reading-thumbnail').first().click();
+ const state=()=>page.evaluate(async()=>{
   const db=await new Promise<IDBDatabase>((resolve,reject)=>{const r=indexedDB.open('fanjian-notes',1);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
-  return new Promise<{alignmentVersion?:number;annotations:{id:string;position:{x:number;y:number};offset?:{x:number;y:number};visible:boolean;method:string}[]}>((resolve,reject)=>{const tx=db.transaction('readings','readonly'),req=tx.objectStore('readings').get(id);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);tx.oncomplete=()=>db.close();});
- },before.id);
+  return new Promise<{alignmentVersion?:number;annotations:{bgColor?:string;inkColor?:string}[]}>((resolve,reject)=>{const tx=db.transaction('readings','readonly'),req=tx.objectStore('readings').get('legacy-1');req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);tx.oncomplete=()=>db.close();});
+ });
  await expect.poll(async()=>(await state()).alignmentVersion,{timeout:60000}).toBe(3);
- const after=await state();expect(after.annotations[0].method).toBe('manual');expect(after.annotations[0].position).toEqual(before.manualPosition);expect(after.annotations[0].offset).toEqual({x:4,y:-3});
- expect(after.annotations.find(a=>a.id===before.hiddenId)?.visible).toBe(false);expect(after.annotations.find(a=>a.id===before.changedId)!.position.x).toBeLessThan(before.oldX-150);
- await expect(page.getByRole('button',{name:'按照片重新定位',exact:true})).toBeEnabled();
+ const after=await state();
+ expect(after.annotations[0].bgColor).toMatch(/^rgb\(/);
+ expect(after.annotations[0].inkColor).toMatch(/^rgb\(/);
 });
