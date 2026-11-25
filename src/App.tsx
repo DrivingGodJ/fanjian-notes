@@ -156,7 +156,7 @@ function App(){
    const next={...r,updatedAt:Date.now()};
    await saveReading(next);
    setReading(next);setSaved(true);
-   notify('已保存到我的阅读');
+   notify('已保存到“保存的书页”');
    await refresh();
   }catch{notify('保存失败，可能空间不足。请先导出图片。');}
  };
@@ -196,14 +196,14 @@ function App(){
    <button className="brand" onClick={goHome}><span className="brand-mark" aria-hidden="true">閱</span><span>繁简旁注</span></button>
    <nav>
     <button className={screen==='home'?'nav-item selected':'nav-item'} onClick={goHome}><BookOpen size={19}/>开始阅读<span>01</span></button>
-    <button className={screen==='history'?'nav-item selected':'nav-item'} onClick={()=>{refresh();setScreen('history');}}><HardDrive size={19}/>我的阅读<span>{recent.length.toString().padStart(2,'0')}</span></button>
+    <button className={screen==='history'?'nav-item selected':'nav-item'} onClick={()=>{refresh();setScreen('history');}}><HardDrive size={19}/>保存的书页<span>{recent.length.toString().padStart(2,'0')}</span></button>
     <button className="nav-item" onClick={()=>setModels(true)}><ArrowDownToLine size={19}/>离线模型<small className={modelReady?'status-dot ready':'status-dot'}/></button>
    </nav>
    <div className="sidebar-bottom"><div className="sidebar-version"><span>本地离线 · 不离设备</span><span>v0.1</span></div></div>
   </aside>
   <header className="mobile-header">
    {screen==='history'?<button className="icon-button mobile-back" aria-label="返回首页" onClick={goHome}><ArrowLeft size={21}/></button>:null}
-   <button className="brand" onClick={goHome}><span className="brand-mark" aria-hidden="true">閱</span><span>{screen==='history'?'我的阅读':'繁简旁注'}</span></button>
+   <button className="brand" onClick={goHome}><span className="brand-mark" aria-hidden="true">閱</span><span>{screen==='history'?'保存的书页':'繁简旁注'}</span></button>
    <div className="mobile-header-actions">
     <button className={update?'icon-button update-ready':'icon-button'} aria-label={update?'更新到最新版本':'检查更新'} disabled={checkingUpdate} onClick={checkForUpdate}><RefreshCw size={19} className={checkingUpdate?'spin':''}/></button>
     <button className="icon-button" aria-label="离线模型管理" onClick={()=>setModels(true)}><HardDrive size={20}/></button>
@@ -236,7 +236,7 @@ function App(){
   </section>
  </>:<div className="history-heading">
   <button type="button" className="back-home" onClick={goHome}><ArrowLeft size={16}/>返回首页</button>
-  <h1>我的阅读</h1>
+  <h1>保存的书页</h1>
   <p className="muted">手动保存在本机的书页，随时打开继续阅读。</p>
   {modelReady
    ?<button className="primary" onClick={()=>upload.current?.click()}><Plus size={18}/>导入新照片</button>
@@ -244,8 +244,8 @@ function App(){
  </div>}
  {error&&<div role="alert" className="error global-error">{error}<button aria-label="关闭提示" onClick={()=>setError('')}><X size={17}/></button></div>}
  <section className="recent-section">
-  <div className="section-heading"><h2>{screen==='history'?'阅读书架':'最近阅读'}<span>{recent.length.toString().padStart(2,'0')}</span></h2>{screen==='home'&&<button onClick={()=>{refresh();setScreen('history');}}>全部记录<ChevronRight size={16}/></button>}</div>
-  {recent.length?<div className="reading-grid">{recent.map(r=><ReadingCard key={r.id} reading={r} onOpen={()=>openReading(r)} onDelete={async()=>{try{await deleteReading(r.id);refresh();notify('已删除这条本地记录');}catch{notify('删除失败，请重试');}}}/>)}</div>:modelReady?<div className="empty-records"><BookOpen size={24} strokeWidth={1.3}/><div><strong>还没有保存的阅读记录</strong><p>拍完识别后，点击右上角“保存”即可留在这里。</p></div><button aria-label="导入第一张照片" onClick={()=>upload.current?.click()}><Plus size={19}/></button></div>:<div className="empty-records"><BookOpen size={24} strokeWidth={1.3}/><div><strong>请先准备离线模型</strong><p>下载完成后即可拍照或从相册导入。</p></div><button aria-label="准备离线模型" onClick={()=>setModels(true)}><ArrowDownToLine size={17}/></button></div>}
+  <div className="section-heading"><h2>{screen==='history'?'已存列表':'保存的书页'}<span>{recent.length.toString().padStart(2,'0')}</span></h2>{screen==='home'&&<button onClick={()=>{refresh();setScreen('history');}}>查看全部<ChevronRight size={16}/></button>}</div>
+  {recent.length?<div className="reading-grid">{recent.map(r=><ReadingCard key={r.id} reading={r} onOpen={()=>openReading(r)} onDelete={async()=>{try{await deleteReading(r.id);refresh();notify('已删除这条本地记录');}catch{notify('删除失败，请重试');}}}/>)}</div>:modelReady?<div className="empty-records"><BookOpen size={24} strokeWidth={1.3}/><div><strong>还没有保存的书页</strong><p>拍完识别后，点击右上角“保存”即可留在这里。</p></div><button aria-label="导入第一张照片" onClick={()=>upload.current?.click()}><Plus size={19}/></button></div>:<div className="empty-records"><BookOpen size={24} strokeWidth={1.3}/><div><strong>请先准备离线模型</strong><p>下载完成后即可拍照或从相册导入。</p></div><button aria-label="准备离线模型" onClick={()=>setModels(true)}><ArrowDownToLine size={17}/></button></div>}
  </section>
  <footer className="page-footer"><span>一页书，安然读。</span><button onClick={()=>setModels(true)}><span className={modelReady?'status-dot ready':'status-dot'}/>{modelReady?'离线模型已就绪':'准备离线模型'}<ArrowRight size={13}/></button></footer>
  </>}

@@ -24,6 +24,7 @@ test('first-time onboarding prompt appears once, demo is removed, and home has n
  await page.reload();
  await expect(page.getByRole('dialog',{name:'首次使用模型安装引导',exact:true})).toHaveCount(0);
  await expect(page.getByText('体验示例')).toHaveCount(0);
+ await expect(page.getByText('最近阅读')).toHaveCount(0);
  await expect(page.locator('.hero-visual')).toHaveCount(0);
  await expect(page.locator('.benefits')).toHaveCount(0);
  await page.evaluate(()=>document.fonts.load('400 16px "Source Han Serif"','繁简旁注'));
@@ -39,14 +40,14 @@ test('first-time onboarding prompt appears once, demo is removed, and home has n
  expect(errors).toEqual([]);
 });
 
-test('entering 我的阅读 provides working 返回首页 on mobile and desktop',async({page})=>{
+test('entering 保存的书页 provides working 返回首页 on mobile and desktop',async({page})=>{
  await page.addInitScript(()=>{localStorage.setItem('fanjian-onboarding-dismissed','1');});
  await page.goto('./');
- await page.getByRole('button',{name:'全部记录',exact:true}).click();
- await expect(page.getByRole('heading',{name:'我的阅读',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'查看全部',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'保存的书页',exact:true})).toBeVisible();
  await page.locator('.history-heading').getByRole('button',{name:'返回首页',exact:true}).click();
  await expect(page.locator('.hero-actions').getByRole('button',{name:'准备离线模型',exact:true})).toBeVisible();
- await page.getByRole('button',{name:'全部记录',exact:true}).click();
+ await page.getByRole('button',{name:'查看全部',exact:true}).click();
  await page.locator('.mobile-header').getByRole('button',{name:'返回首页',exact:true}).click();
  await expect(page.locator('.hero-actions').getByRole('button',{name:'准备离线模型',exact:true})).toBeVisible();
 });
