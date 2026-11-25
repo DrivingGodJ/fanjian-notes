@@ -9,6 +9,7 @@ import {analyzeImageLines,autoPreprocessImage,improveReading,type PreprocessOpti
 import {recognize} from './ocr/adapter';
 import {listReadings,saveReading,deleteReading} from './storage/readings';
 import {cacheStatus,MODEL_CACHE} from './ocr/model-cache';
+import {unwarpModelReady} from './image-processing/unwarp-model';
 import {Camera} from './camera/Camera';
 import {Reader} from './ui/Reader';
 import {ModelManager} from './ui/ModelManager';
@@ -27,15 +28,15 @@ function App(){
  const upload=useRef<HTMLInputElement>(null),capture=useRef<HTMLInputElement>(null),controller=useRef<AbortController>(null),taskId=useRef(0),swRegRef=useRef<ServiceWorkerRegistration|null>(null),forceTimerRef=useRef<ReturnType<typeof setTimeout>|null>(null);
  const notify=(message:string)=>setToast(message);
  const refresh=()=>listReadings().then(setRecent).catch(()=>notify('此浏览器的本地记录不可用，仍可识别与导出。'));
+ const refreshModelStatus=()=>Promise.all([cacheStatus(),unwarpModelReady()]).then(([s,u])=>{const ready=s.ready&&u;setModelReady(ready);return ready;}).catch(()=>false);
 
  useEffect(()=>{
   refresh();
-  cacheStatus().then(s=>{
-   setModelReady(s.ready);
+  refreshModelStatus().then(ready=>{
    let dismissed=false;
    try{dismissed=!!localStorage.getItem(ONBOARDING_KEY);}catch{}
-   if(!s.ready&&!dismissed)setOnboarding(true);
-  }).catch(()=>{});
+   if(!ready&&!dismissed)setOnboarding(true);
+  });
   const apply=registerSW({
    onRegisteredSW(_swUrl,registration){swRegRef.current=registration??null;},
    onNeedRefresh(){setUpdate(()=>()=>apply(true));},
@@ -122,7 +123,7 @@ function App(){
     alignmentVersion:ALIGNMENT_VERSION
    };
    abort.signal.throwIfAborted();if(taskId.current!==id)return;
-   setReading(r);setSaved(false);setScreen('reader');setModelReady(true);
+   setReading(r);setSaved(false);setScreen('reader');void refreshModelStatus();
    if(!lines.length)notify('未找到清晰文字，可调整矫正/增强选项后重新识别。');
    else if(!result.annotations.length)notify('已识别原文，未发现需要转换的繁体字。');
   }catch(e){
@@ -213,7 +214,9 @@ function App(){
     <h1>看见原文。<br/>读懂<span className="serif-accent">每一字。</span><Leaf className="hero-leaf" size={34} strokeWidth={1.4}/></h1>
     <p>拍下一页繁体，原位替换为同色简体。<br/>自动矫正与清晰增强，让纸页阅读毫无负担。</p>
     <div className="hero-actions">
-     <button className="primary" disabled={importing} onClick={()=>{if(isMobileDevice())capture.current?.click();else setCamera(true);}}><CameraIcon size={20}/>拍照识别<ArrowRight size={17}/></button>
+     {modelReady
+      ?<button className="primary" disabled={importing} onClick={()=>{if(isMobileDevice())capture.current?.click();else setCamera(true);}}><CameraIcon size={20}/>拍照识别<ArrowRight size={17}/></button>
+      :<button className="primary" onClick={()=>setModels(true)}><ArrowDownToLine size={20}/>准备离线模型<ArrowRight size={17}/></button>}
      <button className="secondary" disabled={importing} onClick={()=>upload.current?.click()}><ImagePlus size={19}/>{importing?'正在读取…':'从相册导入'}</button>
     </div>
     <div className="hero-footnote"><CloudOff size={14}/>无需云端 OCR<span>·</span>无需账号<span>·</span>照片留在本机</div>
@@ -254,8 +257,8 @@ function App(){
  {isReader&&<Reader reading={reading} saved={saved} onToggleShow={()=>setReading({...reading,showAnnotations:!reading.showAnnotations})} onViewChange={view=>setReading({...reading,view})} onBack={goHome} onSave={()=>save()} onReprocess={opts=>{const orig:PreparedImage={blob:reading.originalImage??reading.image,width:reading.originalWidth??reading.width,height:reading.originalHeight??reading.height,name:reading.name};void runPipeline(orig,opts);}} notify={notify}/>}
  </main>
  {camera&&<Camera onCapture={importFile} onClose={()=>setCamera(false)} onFallback={()=>{setCamera(false);capture.current?.click();}}/>}
- {models&&<ModelManager onClose={()=>{setModels(false);cacheStatus().then(s=>setModelReady(s.ready)).catch(()=>{});}}/>}
- {onboarding&&!models&&<ModelManager onboarding onClose={()=>{dismissOnboarding();cacheStatus().then(s=>setModelReady(s.ready)).catch(()=>{});}} onDismiss={dismissOnboarding}/>}
+ {models&&<ModelManager onClose={()=>{setModels(false);void refreshModelStatus();}}/>}
+ {onboarding&&!models&&<ModelManager onboarding onClose={()=>{dismissOnboarding();void refreshModelStatus();}} onDismiss={dismissOnboarding}/>}
  {toast&&<div role="status" className="toast"><Check size={16}/>{toast}<button aria-label="关闭通知" onClick={()=>setToast('')}><X size={14}/></button></div>}
  {update&&<div className="update-banner">新版本已就绪。<button onClick={()=>update()}>更新</button><button aria-label="稍后更新" onClick={()=>setUpdate(undefined)}><X size={15}/></button></div>}
  </div>;
